@@ -1,0 +1,207 @@
+import { renderToBuffer } from "@react-pdf/renderer";
+import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
+import React from "react";
+import {
+  NonGstInvoice,
+  type NonGstInvoiceProps,
+} from "@/components/invoices/pdf-templates/non-gst-invoice";
+import {
+  GstInvoice,
+  type GstInvoiceProps,
+} from "@/components/invoices/pdf-templates/gst-invoice";
+import {
+  CateringInvoice,
+  type CateringInvoiceProps,
+} from "@/components/invoices/pdf-templates/catering-invoice";
+
+/**
+ * Format a date string (YYYY-MM-DD) to "20 Apr 2026" style.
+ * We avoid Intl here since this may run in restricted environments.
+ */
+function fmtDate(dateStr: string): string {
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/**
+ * Render a PDF buffer for the given invoice ID.
+ * Loads all related data from the DB and picks the correct template.
+ */
+export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
+  // ── Load invoice ────────────────────────────────────────────────────────
+  const invoice = await db.query.invoices.findFirst({
+    where: eq(schema.invoices.id, invoiceId),
+  });
+  if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
+
+  // ── Load related records ────────────────────────────────────────────────
+  const order = await db.query.orders.findFirst({
+    where: eq(schema.orders.id, invoice.orderId),
+  });
+  if (!order) throw new Error(`Order ${invoice.orderId} not found`);
+
+  const firm = await db.query.firms.findFirst({
+    where: eq(schema.firms.id, invoice.firmId),
+  });
+  if (!firm) throw new Error(`Firm ${invoice.firmId} not found`);
+
+  const client = await db.query.clients.findFirst({
+    where: eq(schema.clients.id, invoice.clientId),
+  });
+  if (!client) throw new Error(`Client ${invoice.clientId} not found`);
+
+  // ── Load order items with product details ───────────────────────────────
+  const rawItems = await db
+    .select({
+      quantity: schema.orderItems.quantity,
+      unit: schema.orderItems.unit,
+      rate: schema.orderItems.rate,
+      amount: schema.orderItems.amount,
+      productName: schema.products.name,
+      hsnCode: schema.products.hsnCode,
+    })
+    .from(schema.orderItems)
+    .innerJoin(
+      schema.products,
+      eq(schema.orderItems.productId, schema.products.id)
+    )
+    .where(eq(schema.orderItems.orderId, invoice.orderId));
+
+  const dateFormatted = fmtDate(invoice.date);
+  const size = (invoice.size ?? "A4") as "A6" | "A4";
+
+  // ── Determine template ──────────────────────────────────────────────────
+  const billingType = order.billingType;
+
+  if (billingType === "gst") {
+    const props: GstInvoiceProps = {
+      invoice: {
+        invoiceNumber: invoice.invoiceNumber,
+        date: dateFormatted,
+        subtotal: invoice.subtotal,
+        cgstAmount: invoice.cgstAmount ?? 0,
+        sgstAmount: invoice.sgstAmount ?? 0,
+        igstAmount: invoice.igstAmount ?? 0,
+        total: invoice.total,
+        balanceBf: invoice.balanceBf ?? 0,
+        grandTotal: invoice.grandTotal,
+        size,
+      },
+      firm: {
+        name: firm.name,
+        address: firm.address ?? "",
+        phone: firm.phone ?? "",
+        email: firm.email ?? "",
+        gstNumber: firm.gstNumber ?? "",
+        stateCode: firm.stateCode ?? "",
+        bankName: firm.bankName ?? "",
+        bankAccount: firm.bankAccount ?? "",
+        bankIfsc: firm.bankIfsc ?? "",
+        logo: firm.logo ?? undefined,
+      },
+      client: {
+        shopName: client.shopName,
+        ownerName: client.ownerName ?? "",
+        phone: client.phone ?? "",
+        address: client.address ?? "",
+        gstNumber: client.gstNumber ?? undefined,
+      },
+      items: rawItems.map((i) => ({
+        productName: i.productName,
+        hsnCode: i.hsnCode ?? "",
+        quantity: i.quantity,
+        unit: i.unit ?? "kg",
+        rate: i.rate,
+        amount: i.amount,
+      })),
+    };
+    const element = React.createElement(GstInvoice, props);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (await renderToBuffer(element as any)) as Buffer;
+  }
+
+  if (billingType === "catering") {
+    const props: CateringInvoiceProps = {
+      invoice: {
+        invoiceNumber: invoice.invoiceNumber,
+        date: dateFormatted,
+        subtotal: invoice.subtotal,
+        advancePaid: order.advancePaid ?? 0,
+        balanceDue: invoice.grandTotal,
+        size,
+      },
+      firm: {
+        name: firm.name,
+        address: firm.address ?? "",
+        phone: firm.phone ?? "",
+        email: firm.email ?? "",
+        bankName: firm.bankName ?? "",
+        bankAccount: firm.bankAccount ?? "",
+        bankIfsc: firm.bankIfsc ?? "",
+        logo: firm.logo ?? undefined,
+      },
+      client: {
+        shopName: client.shopName,
+        ownerName: client.ownerName ?? "",
+        phone: client.phone ?? "",
+        address: client.address ?? "",
+      },
+      event: {
+        eventName: order.eventName ?? "Event",
+        eventDate: order.eventDate ? fmtDate(order.eventDate) : dateFormatted,
+      },
+      items: rawItems.map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        rate: i.rate,
+        amount: i.amount,
+      })),
+    };
+    const element = React.createElement(CateringInvoice, props);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (await renderToBuffer(element as any)) as Buffer;
+  }
+
+  // Default: non-gst
+  const props: NonGstInvoiceProps = {
+    invoice: {
+      invoiceNumber: invoice.invoiceNumber,
+      date: dateFormatted,
+      subtotal: invoice.subtotal,
+      balanceBf: invoice.balanceBf ?? 0,
+      grandTotal: invoice.grandTotal,
+      size,
+    },
+    firm: {
+      name: firm.name,
+      address: firm.address ?? "",
+      phone: firm.phone ?? "",
+      email: firm.email ?? "",
+      bankName: firm.bankName ?? "",
+      bankAccount: firm.bankAccount ?? "",
+      bankIfsc: firm.bankIfsc ?? "",
+      logo: firm.logo ?? undefined,
+    },
+    client: {
+      shopName: client.shopName,
+      ownerName: client.ownerName ?? "",
+      phone: client.phone ?? "",
+      address: client.address ?? "",
+    },
+    items: rawItems.map((i) => ({
+      productName: i.productName,
+      quantity: i.quantity,
+      unit: i.unit ?? "kg",
+      rate: i.rate,
+      amount: i.amount,
+    })),
+  };
+  const element = React.createElement(NonGstInvoice, props);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (await renderToBuffer(element as any)) as Buffer;
+}

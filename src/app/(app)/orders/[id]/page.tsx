@@ -3,7 +3,7 @@ import { getOrder, deleteOrder } from "@/actions/orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OrderStatusUpdater } from "@/components/orders/order-status-updater";
@@ -215,7 +215,13 @@ export default async function OrderDetailPage({
 
       {/* Admin actions */}
       {isAdmin && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Link href={`/orders/${id}/invoice`}>
+            <Button variant="primary">
+              <DocumentTextIcon className="mr-1.5 size-4" />
+              Invoice
+            </Button>
+          </Link>
           <Link href={`/orders/${id}/edit`}>
             <Button variant="secondary">Edit</Button>
           </Link>

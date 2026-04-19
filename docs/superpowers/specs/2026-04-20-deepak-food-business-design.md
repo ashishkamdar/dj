@@ -207,6 +207,7 @@ Not a separate table — computed from:
 - Each order shows: client name, items summary, total, status
 - FAB (floating action button) to add new order
 - Quick access to generate invoice per order
+- **Share Orders button:** Formats all orders for the day into a clean text summary and opens WhatsApp share (or copy-to-clipboard). Format: Date header, then per-product summary (product name, total qty across all clients). Deepak sends this to his factory WhatsApp number.
 
 #### Order Entry (Admin only)
 - Select client (searchable dropdown, recurring clients at top)
@@ -238,8 +239,16 @@ Not a separate table — computed from:
 #### Client Detail & Ledger
 - Client info (shop name, owner, phone, address, GSTIN)
 - Ledger tab: chronological list of invoices and payments
-- Running balance shown
+- Running balance shown (opening balance + invoices − payments = current balance)
 - Add payment button
+- Balance B/F is automatically calculated and shown on every new invoice
+
+#### Payments Page (Admin only)
+- Accessible from client detail page
+- Record payment: amount, date, mode (cash/UPI/bank transfer), notes
+- Payment history per client with running balance
+- Supports partial payments (client pays less than invoice amount, remainder carries forward)
+- Quick "Record Payment" button from client list for clients with outstanding balance
 
 #### Product List (Admin only)
 - Search products

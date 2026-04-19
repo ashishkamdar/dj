@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OrderStatusUpdater } from "@/components/orders/order-status-updater";
 
 const statusColor: Record<string, "gray" | "blue" | "green"> = {
   draft: "gray",
@@ -193,6 +194,24 @@ export default async function OrderDetailPage({
           </tfoot>
         </table>
       </div>
+
+      {/* Item status tracking */}
+      {order.items.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
+            Item Status
+          </h2>
+          <OrderStatusUpdater
+            items={order.items.map((item) => ({
+              id: item.id,
+              productName: item.productName ?? "Unknown",
+              quantity: item.quantity,
+              unit: item.unit ?? "kg",
+              itemStatus: item.itemStatus ?? "received",
+            }))}
+          />
+        </div>
+      )}
 
       {/* Admin actions */}
       {isAdmin && (

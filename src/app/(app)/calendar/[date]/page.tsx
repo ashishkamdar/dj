@@ -1,8 +1,10 @@
 import { requireAuth } from "@/lib/session";
 import { getOrdersByDate } from "@/actions/orders";
 import { OrderCard } from "@/components/orders/order-card";
+import { ShareOrdersButton } from "@/components/orders/share-orders-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
+import { formatOrderSummary } from "@/lib/order-summary";
 import { ArrowLeftIcon, CalendarDaysIcon, PlusIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
@@ -41,6 +43,7 @@ export default async function DayViewPage({
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
   const isAdmin = user.role === "admin";
+  const summaryText = totalOrders > 0 ? formatOrderSummary(date, orders) : "";
 
   return (
     <div className="relative">
@@ -53,9 +56,12 @@ export default async function DayViewPage({
           <ArrowLeftIcon className="size-4" />
           Back to calendar
         </Link>
-        <h1 className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
-          {formatDayHeading(date)}
-        </h1>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {formatDayHeading(date)}
+          </h1>
+          {totalOrders > 0 && <ShareOrdersButton summaryText={summaryText} />}
+        </div>
       </div>
 
       {/* Stats row */}

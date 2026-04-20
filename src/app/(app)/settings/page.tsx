@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { LanguageSwitcher } from "@/components/settings/language-switcher";
 import {
   BuildingOfficeIcon,
   UsersIcon,
@@ -22,7 +23,7 @@ const settingsLinks = [
   },
   {
     name: "Backup & Restore",
-    description: "Download database backup",
+    description: "Download database backup or restore from file",
     href: "/settings/backup",
     icon: CloudArrowDownIcon,
   },
@@ -59,6 +60,9 @@ export default async function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      {/* Language Switcher */}
+      <LanguageSwitcher />
     </div>
   );
 }

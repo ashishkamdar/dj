@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   CalendarDaysIcon,
   UserGroupIcon,
@@ -14,11 +15,11 @@ import { ThemeToggle } from "./theme-toggle";
 import { logoutAction } from "@/actions/auth";
 
 const navItems = [
-  { name: "Calendar", href: "/calendar", icon: CalendarDaysIcon },
-  { name: "Clients", href: "/clients", icon: UserGroupIcon },
-  { name: "Products", href: "/products", icon: CubeIcon },
-  { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
-  { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
+  { key: "calendar" as const, href: "/calendar", icon: CalendarDaysIcon },
+  { key: "clients" as const, href: "/clients", icon: UserGroupIcon },
+  { key: "products" as const, href: "/products", icon: CubeIcon },
+  { key: "analytics" as const, href: "/analytics", icon: ChartBarIcon },
+  { key: "settings" as const, href: "/settings", icon: Cog6ToothIcon },
 ];
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ interface SidebarProps {
 
 export function Sidebar({ userName, userRole }: SidebarProps) {
   const pathname = usePathname();
+  const t = useTranslations("nav");
 
   return (
     <div className="hidden xl:fixed xl:inset-y-0 xl:z-50 xl:flex xl:w-64 xl:flex-col">
@@ -48,7 +50,7 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
             {navItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
-                <li key={item.name}>
+                <li key={item.key}>
                   <Link
                     href={item.href}
                     className={`group flex gap-x-3 rounded-md px-3 py-2 text-sm font-medium ${
@@ -58,7 +60,7 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
                     }`}
                   >
                     <item.icon className="size-5 shrink-0" />
-                    {item.name}
+                    {t(item.key)}
                   </Link>
                 </li>
               );
@@ -83,7 +85,7 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
                 <button
                   type="submit"
                   className="rounded-md p-1.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300"
-                  aria-label="Log out"
+                  aria-label={t("logout")}
                 >
                   <ArrowRightStartOnRectangleIcon className="size-5" />
                 </button>

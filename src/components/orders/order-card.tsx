@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EyeIcon, ShareIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PencilSquareIcon, ShareIcon } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 
@@ -80,16 +80,24 @@ export function OrderCard({
             </Badge>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
           <Link
-            href={`/orders/${id}`}
-            className="rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+            href={`/orders/${id}/edit`}
+            className="rounded p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Edit order"
+          >
+            <PencilSquareIcon className="size-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
+          </Link>
+          <Link
+            href={`/orders/${id}/invoice`}
+            className="rounded p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="View invoice"
           >
             <EyeIcon className="size-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />
           </Link>
           <button
             type="button"
-            className="rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="rounded p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
             title="Share via WhatsApp"
           >
             <ShareIcon className="size-5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" />

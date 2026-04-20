@@ -14,6 +14,7 @@ export const firms = sqliteTable("firms", {
   phone: text("phone").default(""),
   email: text("email"),
   logo: text("logo"),
+  signature: text("signature").default(""),
   isGstRegistered: integer("is_gst_registered", { mode: "boolean" }).default(false),
   gstNumber: text("gst_number"),
   stateCode: text("state_code"),

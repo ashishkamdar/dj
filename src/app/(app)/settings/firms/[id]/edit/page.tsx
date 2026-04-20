@@ -5,6 +5,7 @@ import { getFirm, updateFirm } from "@/actions/firms";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SignatureUpload } from "@/components/settings/signature-upload";
 
 export default async function EditFirmPage({
   params,
@@ -133,6 +134,11 @@ export default async function EditFirmPage({
           <Button type="submit">Update Firm</Button>
         </div>
       </form>
+
+      <SignatureUpload
+        firmId={firm.id}
+        currentSignature={firm.signature || undefined}
+      />
     </div>
   );
 }

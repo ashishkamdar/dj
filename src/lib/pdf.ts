@@ -2,6 +2,8 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import React from "react";
+import fs from "fs";
+import path from "path";
 import {
   NonGstInvoice,
   type NonGstInvoiceProps,
@@ -29,6 +31,27 @@ function fmtDate(dateStr: string): string {
 }
 
 /**
+ * Read the signature file from disk and convert to a base64 data URL.
+ */
+function getSignatureDataUrl(signaturePath: string): string | undefined {
+  if (!signaturePath) return undefined;
+  // signaturePath is like "/api/settings/signature/signature-1-123.png"
+  const filename = signaturePath.split("/").pop();
+  if (!filename) return undefined;
+  const filePath = path.join(
+    process.cwd(),
+    "data",
+    "uploads",
+    "signatures",
+    filename,
+  );
+  if (!fs.existsSync(filePath)) return undefined;
+  const buffer = fs.readFileSync(filePath);
+  const ext = filename.split(".").pop() || "png";
+  return `data:image/${ext};base64,${buffer.toString("base64")}`;
+}
+
+/**
  * Render a PDF buffer for the given invoice ID.
  * Loads all related data from the DB and picks the correct template.
  */
@@ -49,6 +72,9 @@ export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
     where: eq(schema.firms.id, invoice.firmId),
   });
   if (!firm) throw new Error(`Firm ${invoice.firmId} not found`);
+
+  // Resolve signature image to base64 data URL for PDF embedding
+  const signatureUrl = getSignatureDataUrl(firm.signature ?? "");
 
   const client = await db.query.clients.findFirst({
     where: eq(schema.clients.id, invoice.clientId),
@@ -119,6 +145,7 @@ export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
         rate: i.rate,
         amount: i.amount,
       })),
+      signatureUrl,
     };
     const element = React.createElement(GstInvoice, props);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +188,7 @@ export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
         rate: i.rate,
         amount: i.amount,
       })),
+      signatureUrl,
     };
     const element = React.createElement(CateringInvoice, props);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,6 +228,7 @@ export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
       rate: i.rate,
       amount: i.amount,
     })),
+    signatureUrl,
   };
   const element = React.createElement(NonGstInvoice, props);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

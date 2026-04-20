@@ -58,6 +58,9 @@ A mobile-first Next.js + SQLite application for Deepak's wholesale Gujarati food
 | is_gst_registered | boolean | |
 | gst_number | text | If GST registered |
 | state_code | text | For CGST/SGST vs IGST |
+| cgst_percent | real | CGST rate for GST invoices (e.g., 2.5) |
+| sgst_percent | real | SGST rate for GST invoices (e.g., 2.5) |
+| signature | text | File path to uploaded signature image |
 | bank_name | text | For invoice footer |
 | bank_account | text | |
 | bank_ifsc | text | |
@@ -208,6 +211,8 @@ Not a separate table — computed from:
 - FAB (floating action button) to add new order
 - Quick access to generate invoice per order
 - **Share Orders button:** Formats all orders for the day into a clean text summary and opens WhatsApp share (or copy-to-clipboard). Format: Date header, then per-product summary (product name, total qty across all clients). Deepak sends this to his factory WhatsApp number.
+- **Sync to Calendar button:** Exports all orders for the date as a `.ics` file. Each order becomes a separate calendar event (client name, amount, items). Opens in the phone's native calendar app (iOS Calendar, Google Calendar, Android). Maintains backward compatibility with Deepak's current workflow of using the mobile calendar.
+- **Per-order action icons:** Edit (pencil), Invoice preview (eye), Share (share icon)
 
 #### Order Entry (Admin only)
 - Select client (searchable dropdown, recurring clients at top)
@@ -264,7 +269,7 @@ Not a separate table — computed from:
 - All filterable by date range, firm, billing type
 
 #### Settings (Admin only)
-- **Firms:** Add/edit firm profiles (name, address, GST details, bank details, logo)
+- **Firms:** Add/edit firm profiles (name, address, GST details with CGST%/SGST% rates, bank details, logo, signature upload)
 - **Invoice Preferences:** default size, invoice number prefix
 - **HSN & GST Rates:** manage HSN codes with corresponding GST rates
 - **User Management:** add/edit users, set PINs, assign roles
@@ -289,12 +294,13 @@ Not a separate table — computed from:
 - Invoice number (serial per firm per FY), date
 - Client: shop name, address, GSTIN
 - Table: S.No, Particular, HSN, Quantity, Unit, Rate, Taxable Amount
-- CGST/SGST breakup (or IGST if inter-state)
+- CGST/SGST rates from the firm's settings (e.g., CGST 2.5% + SGST 2.5% applied on subtotal)
 - Subtotal + Tax + Total
 - Balance B/F
 - **Grand Total**
 - Amount in words
 - Bank details, terms
+- Firm's uploaded signature image (auto-applied, no manual signing needed)
 
 ### Catering Invoice
 - Firm header
@@ -419,10 +425,26 @@ Available under **Settings → Backup & Restore** (Admin only).
 
 ---
 
-## 12. Out of Scope (for now)
+## 12. Calendar Sync
+
+- **Sync to Calendar button** on day view exports all orders as `.ics` file
+- Each order = one calendar event (client name, amount, items in description)
+- Works with iOS Calendar, Google Calendar, Android calendar apps
+- Maintains backward compatibility with Deepak's current mobile calendar workflow
+
+---
+
+## 13. Signature on Invoices
+
+- Upload signature image in Settings → Firms → Edit → Signature section
+- Signature auto-applied to all PDF invoices (Non-GST, GST, Catering)
+- No physical signing needed — digital signature from settings
+
+---
+
+## 14. Out of Scope (for now)
 
 - Online ordering by clients (this is admin/staff-only)
 - Inventory/raw material tracking
 - SMS/email notifications
 - Barcode/QR scanning
-- Mobile app (PWA possible later)

@@ -5,6 +5,8 @@ import { ShareOrdersButton } from "@/components/orders/share-orders-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
 import { formatOrderSummary } from "@/lib/order-summary";
+import { generateIcsForOrders } from "@/lib/calendar-export";
+import { SyncCalendarButton } from "@/components/orders/sync-calendar-button";
 import { ArrowLeftIcon, CalendarDaysIcon, PlusIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
@@ -45,6 +47,20 @@ export default async function DayViewPage({
   const isAdmin = user.role === "admin";
   const summaryText = totalOrders > 0 ? formatOrderSummary(date, orders) : "";
 
+  // Generate .ics calendar content for all orders on this date
+  const icsContent = totalOrders > 0
+    ? generateIcsForOrders(
+        orders.map((o) => ({
+          id: o.id,
+          date,
+          shopName: o.shopName ?? "Order",
+          items: o.items.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit ?? "kg" })),
+          totalAmount: o.totalAmount,
+          billingType: o.billingType,
+        }))
+      )
+    : "";
+
   return (
     <div className="relative">
       {/* Header */}
@@ -60,7 +76,15 @@ export default async function DayViewPage({
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
             {formatDayHeading(date)}
           </h1>
-          {totalOrders > 0 && <ShareOrdersButton summaryText={summaryText} />}
+          {totalOrders > 0 && (
+            <div className="flex items-center gap-2">
+              <SyncCalendarButton
+                icsContent={icsContent}
+                filename={`dj-orders-${date}.ics`}
+              />
+              <ShareOrdersButton summaryText={summaryText} />
+            </div>
+          )}
         </div>
       </div>
 

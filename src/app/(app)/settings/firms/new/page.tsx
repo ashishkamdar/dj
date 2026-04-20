@@ -80,6 +80,24 @@ export default async function NewFirmPage() {
               name="stateCode"
               placeholder="e.g. 24"
             />
+
+            <Input
+              label="CGST Rate (%)"
+              name="cgstPercent"
+              type="number"
+              step="0.01"
+              placeholder="e.g., 2.5"
+              defaultValue="0"
+            />
+
+            <Input
+              label="SGST Rate (%)"
+              name="sgstPercent"
+              type="number"
+              step="0.01"
+              placeholder="e.g., 2.5"
+              defaultValue="0"
+            />
           </div>
         </div>
 

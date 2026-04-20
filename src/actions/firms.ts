@@ -34,6 +34,8 @@ export async function createFirm(formData: FormData) {
   const isGstRegistered = formData.get("isGstRegistered") === "on";
   const gstNumber = (formData.get("gstNumber") as string) || null;
   const stateCode = (formData.get("stateCode") as string) || null;
+  const cgstPercent = parseFloat(formData.get("cgstPercent") as string) || 0;
+  const sgstPercent = parseFloat(formData.get("sgstPercent") as string) || 0;
   const bankName = (formData.get("bankName") as string) || null;
   const bankAccount = (formData.get("bankAccount") as string) || null;
   const bankIfsc = (formData.get("bankIfsc") as string) || null;
@@ -47,6 +49,8 @@ export async function createFirm(formData: FormData) {
       isGstRegistered,
       gstNumber,
       stateCode,
+      cgstPercent,
+      sgstPercent,
       bankName,
       bankAccount,
       bankIfsc,
@@ -71,6 +75,8 @@ export async function updateFirm(id: number, formData: FormData) {
   const isGstRegistered = formData.get("isGstRegistered") === "on";
   const gstNumber = (formData.get("gstNumber") as string) || null;
   const stateCode = (formData.get("stateCode") as string) || null;
+  const cgstPercent = parseFloat(formData.get("cgstPercent") as string) || 0;
+  const sgstPercent = parseFloat(formData.get("sgstPercent") as string) || 0;
   const bankName = (formData.get("bankName") as string) || null;
   const bankAccount = (formData.get("bankAccount") as string) || null;
   const bankIfsc = (formData.get("bankIfsc") as string) || null;
@@ -84,6 +90,8 @@ export async function updateFirm(id: number, formData: FormData) {
       isGstRegistered,
       gstNumber,
       stateCode,
+      cgstPercent,
+      sgstPercent,
       bankName,
       bankAccount,
       bankIfsc,

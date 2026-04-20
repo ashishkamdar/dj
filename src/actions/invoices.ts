@@ -27,17 +27,17 @@ export async function createInvoice(formData: FormData) {
   // Calculate subtotal
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
 
-  // Calculate GST if applicable
+  // Calculate GST if applicable — use firm's CGST/SGST rates
   let cgstAmount = 0, sgstAmount = 0, igstAmount = 0;
 
   if (order.billingType === "gst") {
-    for (const item of items) {
-      const product = db.select().from(schema.products).where(eq(schema.products.id, item.productId)).get();
-      if (product && (product.gstRatePercent ?? 0) > 0) {
-        const gstAmount = (item.amount * (product.gstRatePercent ?? 0)) / 100;
-        // Assuming intra-state (CGST + SGST split equally)
-        cgstAmount += gstAmount / 2;
-        sgstAmount += gstAmount / 2;
+    const firm = db.select().from(schema.firms).where(eq(schema.firms.id, order.firmId)).get();
+    if (firm && firm.isGstRegistered) {
+      const firmCgst = firm.cgstPercent ?? 0;
+      const firmSgst = firm.sgstPercent ?? 0;
+      if (firmCgst > 0 || firmSgst > 0) {
+        cgstAmount = (subtotal * firmCgst) / 100;
+        sgstAmount = (subtotal * firmSgst) / 100;
       }
     }
   }

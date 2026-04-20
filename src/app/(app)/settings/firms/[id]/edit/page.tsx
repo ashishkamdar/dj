@@ -95,6 +95,24 @@ export default async function EditFirmPage({
               name="stateCode"
               defaultValue={firm.stateCode ?? ""}
             />
+
+            <Input
+              label="CGST Rate (%)"
+              name="cgstPercent"
+              type="number"
+              step="0.01"
+              placeholder="e.g., 2.5"
+              defaultValue={firm.cgstPercent ?? 0}
+            />
+
+            <Input
+              label="SGST Rate (%)"
+              name="sgstPercent"
+              type="number"
+              step="0.01"
+              placeholder="e.g., 2.5"
+              defaultValue={firm.sgstPercent ?? 0}
+            />
           </div>
         </div>
 

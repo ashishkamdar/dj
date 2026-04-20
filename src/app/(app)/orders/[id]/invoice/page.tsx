@@ -89,14 +89,12 @@ export default async function InvoicePage({
   let cgstAmount = 0;
   let sgstAmount = 0;
 
-  if (order.billingType === "gst") {
-    for (const item of orderItems) {
-      const gstRate = item.gstRatePercent ?? 0;
-      if (gstRate > 0) {
-        const gstAmt = (item.amount * gstRate) / 100;
-        cgstAmount += gstAmt / 2;
-        sgstAmount += gstAmt / 2;
-      }
+  if (order.billingType === "gst" && firm.isGstRegistered) {
+    const firmCgst = firm.cgstPercent ?? 0;
+    const firmSgst = firm.sgstPercent ?? 0;
+    if (firmCgst > 0 || firmSgst > 0) {
+      cgstAmount = (subtotal * firmCgst) / 100;
+      sgstAmount = (subtotal * firmSgst) / 100;
     }
   }
 

@@ -18,6 +18,8 @@ export const firms = sqliteTable("firms", {
   isGstRegistered: integer("is_gst_registered", { mode: "boolean" }).default(false),
   gstNumber: text("gst_number"),
   stateCode: text("state_code"),
+  cgstPercent: real("cgst_percent").default(0),
+  sgstPercent: real("sgst_percent").default(0),
   bankName: text("bank_name"),
   bankAccount: text("bank_account"),
   bankIfsc: text("bank_ifsc"),

@@ -136,63 +136,94 @@ export default async function OrderDetailPage({
         )}
       </div>
 
-      {/* Items table */}
-      <div className="mb-6 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Product
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Qty
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Unit
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Rate
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {order.items.map((item) => (
-              <tr key={item.id}>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900 dark:text-white">
+      {/* Items — mobile cards + desktop table */}
+      <div className="mb-6">
+        {/* Mobile: stacked cards */}
+        <div className="space-y-2 sm:hidden">
+          {order.items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10"
+            >
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {item.productName ?? "Unknown"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {item.quantity} {item.unit} × {formatCurrency(item.rate)}
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                {formatCurrency(item.amount)}
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between rounded-lg bg-gray-100 px-4 py-3 dark:bg-gray-800">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total</span>
+            <span className="text-base font-semibold text-gray-900 dark:text-white">
+              {formatCurrency(order.totalAmount)}
+            </span>
+          </div>
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden sm:block overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Product
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Qty
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Unit
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Rate
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {order.items.map((item) => (
+                <tr key={item.id}>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900 dark:text-white">
+                    {item.productName ?? "Unknown"}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                    {item.quantity}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                    {item.unit}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                    {formatCurrency(item.rate)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
+                    {formatCurrency(item.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50 dark:bg-gray-800">
+                <td
+                  colSpan={4}
+                  className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Total
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
-                  {item.quantity}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                  {item.unit}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
-                  {formatCurrency(item.rate)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(item.amount)}
+                <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                  {formatCurrency(order.totalAmount)}
                 </td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-50 dark:bg-gray-800">
-              <td
-                colSpan={4}
-                className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white"
-              >
-                Total
-              </td>
-              <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
-                {formatCurrency(order.totalAmount)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+            </tfoot>
+          </table>
+        </div>
       </div>
 
       {/* Item status tracking */}

@@ -228,7 +228,7 @@ export function OrderForm({
   const canSubmit = clientId && firmId && billingType && validItems.length > 0 && !submitting;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       {/* Client */}
       <Select
         label="Client"
@@ -297,98 +297,86 @@ export function OrderForm({
           {lineItems.map((item, index) => (
             <div
               key={index}
-              className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50"
+              className="overflow-hidden rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50"
             >
-              <div className="flex items-start gap-2">
-                <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
-                  {/* Product */}
-                  <div className="col-span-2 sm:col-span-1">
-                    <select
-                      className="block w-full rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
-                      value={item.productId || ""}
-                      onChange={(e) =>
-                        updateLineItem(index, {
-                          productId: parseInt(e.target.value, 10) || 0,
-                        })
-                      }
-                    >
-                      <option value="" disabled>
-                        Product
-                      </option>
-                      {productOptions.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              {/* Row 1: Product select + Amount + Remove */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="block min-w-0 flex-1 rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+                  value={item.productId || ""}
+                  onChange={(e) =>
+                    updateLineItem(index, {
+                      productId: parseInt(e.target.value, 10) || 0,
+                    })
+                  }
+                >
+                  <option value="" disabled>
+                    Product
+                  </option>
+                  {productOptions.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="shrink-0 text-sm font-medium text-gray-900 dark:text-white">
+                  {formatCurrency(item.amount)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeItem(index)}
+                  disabled={lineItems.length <= 1}
+                  className="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 disabled:opacity-30 dark:text-gray-500 dark:hover:text-red-400"
+                >
+                  <XMarkIcon className="size-5" />
+                </button>
+              </div>
 
-                  {/* Quantity */}
-                  <div>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      className="block w-full rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
-                      placeholder="Qty"
-                      value={item.quantity || ""}
-                      onChange={(e) =>
-                        updateLineItem(index, {
-                          quantity: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
+              {/* Row 2: Qty + Unit */}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  className="block w-full min-w-0 flex-1 rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+                  placeholder="Qty"
+                  value={item.quantity || ""}
+                  onChange={(e) =>
+                    updateLineItem(index, {
+                      quantity: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+                <select
+                  className="block w-full min-w-0 flex-1 rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+                  value={item.unit}
+                  onChange={(e) =>
+                    updateLineItem(index, { unit: e.target.value })
+                  }
+                >
+                  {UNIT_OPTIONS.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* Unit */}
-                  <div>
-                    <select
-                      className="block w-full rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
-                      value={item.unit}
-                      onChange={(e) =>
-                        updateLineItem(index, { unit: e.target.value })
-                      }
-                    >
-                      {UNIT_OPTIONS.map((u) => (
-                        <option key={u.value} value={u.value}>
-                          {u.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Rate */}
-                  <div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="block w-full rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
-                      placeholder="Rate"
-                      value={item.rate || ""}
-                      onChange={(e) =>
-                        updateLineItem(index, {
-                          rate: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Amount + Remove */}
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="w-20 text-right text-sm font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(item.amount)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    disabled={lineItems.length <= 1}
-                    className="rounded p-1 text-gray-400 hover:text-red-500 disabled:opacity-30 dark:text-gray-500 dark:hover:text-red-400"
-                  >
-                    <XMarkIcon className="size-5" />
-                  </button>
-                </div>
+              {/* Row 3: Rate */}
+              <div className="mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="block w-full max-w-[10rem] rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+                  placeholder="Rate"
+                  value={item.rate || ""}
+                  onChange={(e) =>
+                    updateLineItem(index, {
+                      rate: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
               </div>
             </div>
           ))}

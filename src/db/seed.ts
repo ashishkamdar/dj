@@ -55,8 +55,13 @@ async function seed() {
   });
   console.log("Mapped domain: dj.areakpi.in");
 
-  // 4. Create default firm
-  const [firm] = await db
+  // 4-6: Tenant-scoped inserts need app.tenant_id set for RLS
+  const client = await pool.connect();
+  await client.query("BEGIN");
+  await client.query(`SET LOCAL app.tenant_id = '${tenant.id}'`);
+  const tenantDb = drizzle(client, { schema });
+
+  const [firm] = await tenantDb
     .insert(schema.firms)
     .values({
       tenantId: tenant.id,
@@ -68,9 +73,8 @@ async function seed() {
     .returning();
   console.log(`Created firm: ${firm.name}`);
 
-  // 5. Create admin user
   const hashedPin = hashSync("1234", 10);
-  const [user] = await db
+  const [user] = await tenantDb
     .insert(schema.users)
     .values({
       tenantId: tenant.id,
@@ -81,7 +85,6 @@ async function seed() {
     .returning();
   console.log(`Created admin user: ${user.name} (PIN: 1234)`);
 
-  // 6. Create products (no default rates)
   const productNames = [
     "Khaman Dhokla", "Khandvi", "Stuff Khandvi", "Paneer Khandvi",
     "Cheese Khandvi", "Sandwich Khaman", "Paneer Khaman", "Cheese Khaman",
@@ -94,7 +97,7 @@ async function seed() {
     "Mini Idli Green", "Mungdal Mini Idli", "Kotmirwadi",
   ];
 
-  await db.insert(schema.products).values(
+  await tenantDb.insert(schema.products).values(
     productNames.map((name) => ({
       tenantId: tenant.id,
       name,
@@ -103,6 +106,9 @@ async function seed() {
     })),
   );
   console.log(`Created ${productNames.length} products`);
+
+  await client.query("COMMIT");
+  client.release();
 
   console.log("\nSeed complete!");
   await pool.end();

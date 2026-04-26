@@ -34,14 +34,40 @@ async function seed() {
     .returning();
   console.log(`Created admin user: ${admin.name} (id: ${admin.id})`);
 
-  // 3. Create starter products
+  // 3. Create products (no default rates — prices vary per client)
   const starterProducts = [
-    { name: "Dhokla", defaultUnit: "kg", defaultRate: 180, category: "Snacks" },
-    { name: "Patra", defaultUnit: "kg", defaultRate: 180, category: "Snacks" },
-    { name: "Khandvi", defaultUnit: "kg", defaultRate: 180, category: "Snacks" },
-    { name: "Kachori", defaultUnit: "kg", defaultRate: 200, category: "Snacks" },
-    { name: "White Dhokla", defaultUnit: "kg", defaultRate: 180, category: "Snacks" },
-  ];
+    "Khaman Dhokla",
+    "Khandvi",
+    "Stuff Khandvi",
+    "Paneer Khandvi",
+    "Cheese Khandvi",
+    "Sandwich Khaman",
+    "Paneer Khaman",
+    "Cheese Khaman",
+    "Dabeli Dhokla",
+    "Pav Bhaji Dhokla",
+    "White Dhokla",
+    "Khatta Dhokla",
+    "Sandwich Dhokla",
+    "Tirangi Dhokla",
+    "Falg Dhokla",
+    "Sezwan Dhokla",
+    "Kanchipuram Dhokla",
+    "Corn Dhokla",
+    "Corn Capsicum Dhokla",
+    "Rumali Dhokla",
+    "Garden Dhokla",
+    "Watti Dhokla Yellow",
+    "Watti Dhokla Garden",
+    "Watti Dhokla White",
+    "Mungdal Watti Dhokla",
+    "Mungdal Dhokla",
+    "Mini Idli White",
+    "Mini Idli Masala",
+    "Mini Idli Green",
+    "Mungdal Mini Idli",
+    "Kotmirwadi",
+  ].map((name) => ({ name, defaultUnit: "kg" as const, defaultRate: 0 }));
 
   const insertedProducts = await db
     .insert(products)
@@ -49,10 +75,10 @@ async function seed() {
     .returning();
 
   for (const p of insertedProducts) {
-    console.log(`Created product: ${p.name} @ ₹${p.defaultRate}/${p.defaultUnit}`);
+    console.log(`Created product: ${p.name}`);
   }
 
-  console.log("\nSeed complete!");
+  console.log(`\nSeed complete! ${insertedProducts.length} products created.`);
 }
 
 seed().catch((err) => {

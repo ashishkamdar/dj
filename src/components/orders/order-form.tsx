@@ -159,11 +159,10 @@ export function OrderForm({
       const newItems = [...prev];
       const item = { ...newItems[index], ...updates };
 
-      // If product changed, auto-fill rate and unit
+      // If product changed, auto-fill unit only (rate varies per client)
       if (updates.productId !== undefined) {
         const product = products.find((p) => p.id === updates.productId);
         if (product) {
-          item.rate = product.defaultRate ?? 0;
           item.unit = product.defaultUnit ?? "kg";
         }
       }

@@ -50,7 +50,9 @@ export default async function ProductsPage() {
                     {product.name}
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatCurrency(product.defaultRate ?? 0)}/{product.defaultUnit}
+                    {(product.defaultRate ?? 0) > 0
+                      ? `${formatCurrency(product.defaultRate!)}/${product.defaultUnit}`
+                      : product.defaultUnit}
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -101,7 +103,7 @@ export default async function ProductsPage() {
                         {product.name}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                        {formatCurrency(product.defaultRate ?? 0)}
+                        {(product.defaultRate ?? 0) > 0 ? formatCurrency(product.defaultRate!) : "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                         {product.defaultUnit}

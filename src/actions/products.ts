@@ -1,34 +1,37 @@
 "use server";
 
-import { db, schema } from "@/db";
+import { withTenantDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getProducts(activeOnly = true) {
-  await requireAdmin();
-  if (activeOnly) {
-    return db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.isActive, true))
-      .all();
-  }
-  return db.select().from(schema.products).all();
+  const { tenantId } = await requireAdmin();
+  return withTenantDb(tenantId, async (db) => {
+    if (activeOnly) {
+      return db
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.isActive, true));
+    }
+    return db.select().from(schema.products);
+  });
 }
 
 export async function getProduct(id: number) {
-  await requireAdmin();
-  return db
-    .select()
-    .from(schema.products)
-    .where(eq(schema.products.id, id))
-    .get();
+  const { tenantId } = await requireAdmin();
+  return withTenantDb(tenantId, async (db) => {
+    const rows = await db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.id, id));
+    return rows[0] ?? null;
+  });
 }
 
 export async function createProduct(formData: FormData) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
 
   const name = formData.get("name") as string;
   if (!name || !name.trim()) {
@@ -42,23 +45,25 @@ export async function createProduct(formData: FormData) {
     parseFloat(formData.get("gstRatePercent") as string) || 0;
   const category = (formData.get("category") as string) || null;
 
-  db.insert(schema.products)
-    .values({
-      name: name.trim(),
-      defaultUnit,
-      defaultRate,
-      hsnCode,
-      gstRatePercent,
-      category,
-    })
-    .run();
+  await withTenantDb(tenantId, async (db) => {
+    await db.insert(schema.products)
+      .values({
+        tenantId,
+        name: name.trim(),
+        defaultUnit,
+        defaultRate,
+        hsnCode,
+        gstRatePercent,
+        category,
+      });
+  });
 
   revalidatePath("/products");
   redirect("/products");
 }
 
 export async function updateProduct(id: number, formData: FormData) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
 
   const name = formData.get("name") as string;
   if (!name || !name.trim()) {
@@ -72,39 +77,41 @@ export async function updateProduct(id: number, formData: FormData) {
     parseFloat(formData.get("gstRatePercent") as string) || 0;
   const category = (formData.get("category") as string) || null;
 
-  db.update(schema.products)
-    .set({
-      name: name.trim(),
-      defaultUnit,
-      defaultRate,
-      hsnCode,
-      gstRatePercent,
-      category,
-    })
-    .where(eq(schema.products.id, id))
-    .run();
+  await withTenantDb(tenantId, async (db) => {
+    await db.update(schema.products)
+      .set({
+        name: name.trim(),
+        defaultUnit,
+        defaultRate,
+        hsnCode,
+        gstRatePercent,
+        category,
+      })
+      .where(eq(schema.products.id, id));
+  });
 
   revalidatePath("/products");
   redirect("/products");
 }
 
 export async function toggleProductActive(id: number) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
 
-  const product = db
-    .select()
-    .from(schema.products)
-    .where(eq(schema.products.id, id))
-    .get();
+  await withTenantDb(tenantId, async (db) => {
+    const rows = await db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.id, id));
+    const product = rows[0];
 
-  if (!product) {
-    throw new Error("Product not found");
-  }
+    if (!product) {
+      throw new Error("Product not found");
+    }
 
-  db.update(schema.products)
-    .set({ isActive: !product.isActive })
-    .where(eq(schema.products.id, id))
-    .run();
+    await db.update(schema.products)
+      .set({ isActive: !product.isActive })
+      .where(eq(schema.products.id, id));
+  });
 
   revalidatePath("/products");
 }

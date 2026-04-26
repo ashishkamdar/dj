@@ -1,27 +1,31 @@
 "use server";
 
-import { db, schema } from "@/db";
+import { withTenantDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getFirms() {
-  await requireAdmin();
-  return db.select().from(schema.firms).all();
+  const { tenantId } = await requireAdmin();
+  return withTenantDb(tenantId, async (db) => {
+    return db.select().from(schema.firms);
+  });
 }
 
 export async function getFirm(id: number) {
-  await requireAdmin();
-  return db
-    .select()
-    .from(schema.firms)
-    .where(eq(schema.firms.id, id))
-    .get();
+  const { tenantId } = await requireAdmin();
+  return withTenantDb(tenantId, async (db) => {
+    const rows = await db
+      .select()
+      .from(schema.firms)
+      .where(eq(schema.firms.id, id));
+    return rows[0] ?? null;
+  });
 }
 
 export async function createFirm(formData: FormData) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
 
   const name = formData.get("name") as string;
   if (!name || !name.trim()) {
@@ -40,29 +44,31 @@ export async function createFirm(formData: FormData) {
   const bankAccount = (formData.get("bankAccount") as string) || null;
   const bankIfsc = (formData.get("bankIfsc") as string) || null;
 
-  db.insert(schema.firms)
-    .values({
-      name: name.trim(),
-      address,
-      phone,
-      email,
-      isGstRegistered,
-      gstNumber,
-      stateCode,
-      cgstPercent,
-      sgstPercent,
-      bankName,
-      bankAccount,
-      bankIfsc,
-    })
-    .run();
+  await withTenantDb(tenantId, async (db) => {
+    await db.insert(schema.firms)
+      .values({
+        tenantId,
+        name: name.trim(),
+        address,
+        phone,
+        email,
+        isGstRegistered,
+        gstNumber,
+        stateCode,
+        cgstPercent,
+        sgstPercent,
+        bankName,
+        bankAccount,
+        bankIfsc,
+      });
+  });
 
   revalidatePath("/settings/firms");
   redirect("/settings/firms");
 }
 
 export async function updateFirm(id: number, formData: FormData) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
 
   const name = formData.get("name") as string;
   if (!name || !name.trim()) {
@@ -81,24 +87,25 @@ export async function updateFirm(id: number, formData: FormData) {
   const bankAccount = (formData.get("bankAccount") as string) || null;
   const bankIfsc = (formData.get("bankIfsc") as string) || null;
 
-  db.update(schema.firms)
-    .set({
-      name: name.trim(),
-      address,
-      phone,
-      email,
-      isGstRegistered,
-      gstNumber,
-      stateCode,
-      cgstPercent,
-      sgstPercent,
-      bankName,
-      bankAccount,
-      bankIfsc,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(schema.firms.id, id))
-    .run();
+  await withTenantDb(tenantId, async (db) => {
+    await db.update(schema.firms)
+      .set({
+        name: name.trim(),
+        address,
+        phone,
+        email,
+        isGstRegistered,
+        gstNumber,
+        stateCode,
+        cgstPercent,
+        sgstPercent,
+        bankName,
+        bankAccount,
+        bankIfsc,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.firms.id, id));
+  });
 
   revalidatePath("/settings/firms");
   redirect("/settings/firms");

@@ -1,21 +1,73 @@
 import {
-  sqliteTable,
+  pgTable,
+  serial,
   text,
   integer,
+  boolean,
   real,
-} from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+  timestamp,
+  numeric,
+} from "drizzle-orm/pg-core";
 
-// ── Firms ──────────────────────────────────────────────────────────────────
-export const firms = sqliteTable("firms", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+// ── Central Tables (no tenant_id) ──────────────────────────────────────
+
+export const tenants = pgTable("tenants", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  ownerName: text("owner_name").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  ownerPhone: text("owner_phone").default(""),
+  status: text("status", {
+    enum: ["pending", "active", "expired", "suspended"],
+  }).notNull().default("pending"),
+  subscriptionPlan: text("subscription_plan", {
+    enum: ["free", "monthly", "yearly"],
+  }).notNull().default("free"),
+  subscriptionExpiresAt: timestamp("subscription_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const superAdmins = pgTable("super_admins", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tenantDomains = pgTable("tenant_domains", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  domain: text("domain").notNull().unique(),
+  isPrimary: boolean("is_primary").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const subscriptionPayments = pgTable("subscription_payments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  amount: numeric("amount").notNull(),
+  date: text("date").notNull(),
+  mode: text("mode", { enum: ["cash", "upi", "bank"] }).default("cash"),
+  notes: text("notes"),
+  recordedBy: integer("recorded_by").references(() => superAdmins.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ── Tenant-Scoped Tables ───────────────────────────────────────────────
+
+export const firms = pgTable("firms", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   address: text("address").default(""),
   phone: text("phone").default(""),
   email: text("email"),
   logo: text("logo"),
   signature: text("signature").default(""),
-  isGstRegistered: integer("is_gst_registered", { mode: "boolean" }).default(false),
+  isGstRegistered: boolean("is_gst_registered").default(false),
   gstNumber: text("gst_number"),
   stateCode: text("state_code"),
   cgstPercent: real("cgst_percent").default(0),
@@ -23,110 +75,90 @@ export const firms = sqliteTable("firms", {
   bankName: text("bank_name"),
   bankAccount: text("bank_account"),
   bankIfsc: text("bank_ifsc"),
-  isActive: integer("is_active", { mode: "boolean" }).default(true),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ── Products ───────────────────────────────────────────────────────────────
-export const products = sqliteTable("products", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  pin: text("pin").notNull(),
+  role: text("role", { enum: ["admin", "staff"] }).default("staff"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   defaultUnit: text("default_unit").default("kg"),
   defaultRate: real("default_rate").default(0),
   hsnCode: text("hsn_code"),
   gstRatePercent: real("gst_rate_percent").default(0),
   category: text("category"),
-  isActive: integer("is_active", { mode: "boolean" }).default(true),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ── Clients ────────────────────────────────────────────────────────────────
-export const clients = sqliteTable("clients", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const clients = pgTable("clients", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   shopName: text("shop_name").notNull(),
   ownerName: text("owner_name").default(""),
   phone: text("phone").default(""),
   address: text("address").default(""),
-  isRecurring: integer("is_recurring", { mode: "boolean" }).default(false),
+  isRecurring: boolean("is_recurring").default(false),
   defaultFirmId: integer("default_firm_id").references(() => firms.id),
   openingBalance: real("opening_balance").default(0),
   gstNumber: text("gst_number"),
-  isActive: integer("is_active", { mode: "boolean" }).default(true),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ── Users ──────────────────────────────────────────────────────────────────
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  pin: text("pin").notNull(),
-  role: text("role", { enum: ["admin", "staff"] }).default("staff"),
-  isActive: integer("is_active", { mode: "boolean" }).default(true),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-});
-
-// ── Orders ─────────────────────────────────────────────────────────────────
-export const orders = sqliteTable("orders", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   date: text("date").notNull(),
-  clientId: integer("client_id")
-    .notNull()
-    .references(() => clients.id),
-  firmId: integer("firm_id")
-    .notNull()
-    .references(() => firms.id),
-  billingType: text("billing_type", {
-    enum: ["gst", "non-gst", "catering"],
-  }).notNull(),
-  status: text("status", {
-    enum: ["draft", "confirmed", "invoiced"],
-  }).default("draft"),
+  clientId: integer("client_id").notNull().references(() => clients.id),
+  firmId: integer("firm_id").notNull().references(() => firms.id),
+  billingType: text("billing_type", { enum: ["gst", "non-gst", "catering"] }).notNull(),
+  status: text("status", { enum: ["draft", "confirmed", "invoiced"] }).default("draft"),
   notes: text("notes"),
   eventDate: text("event_date"),
   eventName: text("event_name"),
   advancePaid: real("advance_paid").default(0),
   createdBy: integer("created_by").references(() => users.id),
   updatedBy: integer("updated_by").references(() => users.id),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ── Order Items ────────────────────────────────────────────────────────────
-export const orderItems = sqliteTable("order_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  orderId: integer("order_id")
-    .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
-  productId: integer("product_id")
-    .notNull()
-    .references(() => products.id),
+export const orderItems = pgTable("order_items", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => products.id),
   quantity: real("quantity").notNull(),
   unit: text("unit").default("kg"),
   rate: real("rate").notNull(),
   amount: real("amount").notNull(),
-  itemStatus: text("item_status", {
-    enum: ["received", "cooking", "cooked", "packed"],
-  }).default("received"),
+  itemStatus: text("item_status", { enum: ["received", "cooking", "cooked", "packed"] }).default("received"),
   updatedBy: integer("updated_by").references(() => users.id),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ── Invoices ───────────────────────────────────────────────────────────────
-export const invoices = sqliteTable("invoices", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  invoiceNumber: text("invoice_number").notNull().unique(),
-  orderId: integer("order_id")
-    .notNull()
-    .references(() => orders.id),
-  firmId: integer("firm_id")
-    .notNull()
-    .references(() => firms.id),
-  clientId: integer("client_id")
-    .notNull()
-    .references(() => clients.id),
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  invoiceNumber: text("invoice_number").notNull(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  firmId: integer("firm_id").notNull().references(() => firms.id),
+  clientId: integer("client_id").notNull().references(() => clients.id),
   date: text("date").notNull(),
   subtotal: real("subtotal").notNull(),
   cgstAmount: real("cgst_amount").default(0),
@@ -138,19 +170,17 @@ export const invoices = sqliteTable("invoices", {
   size: text("size", { enum: ["A6", "A4"] }).default("A4"),
   pdfPath: text("pdf_path"),
   createdBy: integer("created_by").references(() => users.id),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ── Payments ───────────────────────────────────────────────────────────────
-export const payments = sqliteTable("payments", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  clientId: integer("client_id")
-    .notNull()
-    .references(() => clients.id),
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => clients.id),
   amount: real("amount").notNull(),
   date: text("date").notNull(),
   mode: text("mode", { enum: ["cash", "upi", "bank"] }).default("cash"),
   notes: text("notes"),
   receivedBy: integer("received_by").references(() => users.id),
-  createdAt: text("created_at").default(sql`(datetime('now'))`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

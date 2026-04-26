@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
-import { db, schema } from "@/db";
+import { withTenantDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
+import { requireAdmin } from "@/lib/session";
 
 export async function POST(request: Request) {
+  const { tenantId } = await requireAdmin();
+
   const formData = await request.formData();
   const file = formData.get("signature") as File;
   const firmId = parseInt(formData.get("firmId") as string);
@@ -32,10 +35,11 @@ export async function POST(request: Request) {
 
   // Update firm
   const relativePath = `/api/settings/signature/${filename}`;
-  db.update(schema.firms)
-    .set({ signature: relativePath, updatedAt: new Date().toISOString() })
-    .where(eq(schema.firms.id, firmId))
-    .run();
+  await withTenantDb(tenantId, async (db) => {
+    await db.update(schema.firms)
+      .set({ signature: relativePath, updatedAt: new Date() })
+      .where(eq(schema.firms.id, firmId));
+  });
 
   return NextResponse.json({ success: true, path: relativePath });
 }

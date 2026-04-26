@@ -34,8 +34,8 @@ export default async function ClientDetailPage({
   const fyRange = getFYRange(selectedFY);
 
   // Get balance and ledger
-  const balance = getClientBalance(client.id);
-  const ledger = getClientLedger(client.id, fyRange.start, fyRange.end);
+  const balance = await getClientBalance(session.tenantId, client.id);
+  const ledger = await getClientLedger(session.tenantId, client.id, fyRange.start, fyRange.end);
 
   // Generate FY options (current + 2 previous)
   const fyOptions: string[] = [];

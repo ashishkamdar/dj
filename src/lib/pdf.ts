@@ -1,5 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { db, schema } from "@/db";
+import { withTenantDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import React from "react";
 import fs from "fs";
@@ -55,53 +55,67 @@ function getSignatureDataUrl(signaturePath: string): string | undefined {
  * Render a PDF buffer for the given invoice ID.
  * Loads all related data from the DB and picks the correct template.
  */
-export async function renderInvoicePDF(invoiceId: number): Promise<Buffer> {
-  // ── Load invoice ────────────────────────────────────────────────────────
-  const invoice = await db.query.invoices.findFirst({
-    where: eq(schema.invoices.id, invoiceId),
-  });
-  if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
+export async function renderInvoicePDF(tenantId: number, invoiceId: number): Promise<Buffer> {
+  const data = await withTenantDb(tenantId, async (db) => {
+    // Load invoice
+    const invoiceRows = await db
+      .select()
+      .from(schema.invoices)
+      .where(eq(schema.invoices.id, invoiceId));
+    const invoice = invoiceRows[0];
+    if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
 
-  // ── Load related records ────────────────────────────────────────────────
-  const order = await db.query.orders.findFirst({
-    where: eq(schema.orders.id, invoice.orderId),
-  });
-  if (!order) throw new Error(`Order ${invoice.orderId} not found`);
+    // Load related records
+    const orderRows = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, invoice.orderId));
+    const order = orderRows[0];
+    if (!order) throw new Error(`Order ${invoice.orderId} not found`);
 
-  const firm = await db.query.firms.findFirst({
-    where: eq(schema.firms.id, invoice.firmId),
+    const firmRows = await db
+      .select()
+      .from(schema.firms)
+      .where(eq(schema.firms.id, invoice.firmId));
+    const firm = firmRows[0];
+    if (!firm) throw new Error(`Firm ${invoice.firmId} not found`);
+
+    const clientRows = await db
+      .select()
+      .from(schema.clients)
+      .where(eq(schema.clients.id, invoice.clientId));
+    const client = clientRows[0];
+    if (!client) throw new Error(`Client ${invoice.clientId} not found`);
+
+    // Load order items with product details
+    const rawItems = await db
+      .select({
+        quantity: schema.orderItems.quantity,
+        unit: schema.orderItems.unit,
+        rate: schema.orderItems.rate,
+        amount: schema.orderItems.amount,
+        productName: schema.products.name,
+        hsnCode: schema.products.hsnCode,
+      })
+      .from(schema.orderItems)
+      .innerJoin(
+        schema.products,
+        eq(schema.orderItems.productId, schema.products.id)
+      )
+      .where(eq(schema.orderItems.orderId, invoice.orderId));
+
+    return { invoice, order, firm, client, rawItems };
   });
-  if (!firm) throw new Error(`Firm ${invoice.firmId} not found`);
+
+  const { invoice, order, firm, client, rawItems } = data;
 
   // Resolve signature image to base64 data URL for PDF embedding
   const signatureUrl = getSignatureDataUrl(firm.signature ?? "");
 
-  const client = await db.query.clients.findFirst({
-    where: eq(schema.clients.id, invoice.clientId),
-  });
-  if (!client) throw new Error(`Client ${invoice.clientId} not found`);
-
-  // ── Load order items with product details ───────────────────────────────
-  const rawItems = await db
-    .select({
-      quantity: schema.orderItems.quantity,
-      unit: schema.orderItems.unit,
-      rate: schema.orderItems.rate,
-      amount: schema.orderItems.amount,
-      productName: schema.products.name,
-      hsnCode: schema.products.hsnCode,
-    })
-    .from(schema.orderItems)
-    .innerJoin(
-      schema.products,
-      eq(schema.orderItems.productId, schema.products.id)
-    )
-    .where(eq(schema.orderItems.orderId, invoice.orderId));
-
   const dateFormatted = fmtDate(invoice.date);
   const size = (invoice.size ?? "A4") as "A6" | "A4";
 
-  // ── Determine template ──────────────────────────────────────────────────
+  // Determine template
   const billingType = order.billingType;
 
   if (billingType === "gst") {

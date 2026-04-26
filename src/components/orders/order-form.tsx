@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { XMarkIcon, PlusIcon } from "@heroicons/react/24/outline";
@@ -11,6 +10,7 @@ import { createOrder, updateOrder } from "@/actions/orders";
 interface Firm {
   id: number;
   name: string;
+  isGstRegistered: boolean | null;
 }
 
 interface Client {
@@ -70,11 +70,7 @@ const UNIT_OPTIONS = [
   { value: "trays", label: "trays" },
 ];
 
-const BILLING_OPTIONS = [
-  { value: "gst", label: "GST" },
-  { value: "non-gst", label: "Non-GST" },
-  { value: "catering", label: "Catering" },
-];
+// Billing type is auto-determined from firm's GST registration status
 
 function emptyItem(): LineItem {
   return { productId: 0, quantity: 1, unit: "kg", rate: 0, amount: 0 };
@@ -95,19 +91,7 @@ export function OrderForm({
   const [firmId, setFirmId] = useState<string>(
     order ? String(order.firmId) : firms.length === 1 ? String(firms[0].id) : "",
   );
-  const [billingType, setBillingType] = useState<string>(
-    order?.billingType ?? "gst",
-  );
   const [notes, setNotes] = useState<string>(order?.notes ?? "");
-  const [eventName, setEventName] = useState<string>(
-    order?.eventName ?? "",
-  );
-  const [eventDate, setEventDate] = useState<string>(
-    order?.eventDate ?? "",
-  );
-  const [advancePaid, setAdvancePaid] = useState<string>(
-    order?.advancePaid ? String(order.advancePaid) : "",
-  );
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
     order?.items?.length
@@ -184,6 +168,10 @@ export function OrderForm({
 
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
+  // Auto-determine billing type from selected firm's GST status
+  const selectedFirm = firms.find((f) => f.id === parseInt(firmId, 10));
+  const billingType = selectedFirm?.isGstRegistered ? "gst" : "non-gst";
+
   async function handleSubmit(statusOverride: string) {
     setSubmitting(true);
     try {
@@ -194,11 +182,6 @@ export function OrderForm({
       formData.set("billingType", billingType);
       formData.set("status", statusOverride);
       formData.set("notes", notes);
-      if (billingType === "catering") {
-        formData.set("eventName", eventName);
-        formData.set("eventDate", eventDate);
-        formData.set("advancePaid", advancePaid);
-      }
       formData.set(
         "items",
         JSON.stringify(
@@ -224,7 +207,7 @@ export function OrderForm({
   }
 
   const validItems = lineItems.filter((i) => i.productId > 0);
-  const canSubmit = clientId && firmId && billingType && validItems.length > 0 && !submitting;
+  const canSubmit = clientId && firmId && validItems.length > 0 && !submitting;
 
   return (
     <div className="space-y-6 overflow-hidden">
@@ -247,45 +230,6 @@ export function OrderForm({
         value={firmId}
         onChange={(e) => setFirmId(e.target.value)}
       />
-
-      {/* Billing Type */}
-      <Select
-        label="Billing Type"
-        name="billingType"
-        options={BILLING_OPTIONS}
-        value={billingType}
-        onChange={(e) => setBillingType(e.target.value)}
-      />
-
-      {/* Catering fields */}
-      {billingType === "catering" && (
-        <div className="space-y-4 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
-          <Input
-            label="Event Name"
-            name="eventName"
-            value={eventName}
-            onChange={(e) => setEventName(e.target.value)}
-            placeholder="e.g., Wedding Reception"
-          />
-          <Input
-            label="Event Date"
-            name="eventDate"
-            type="date"
-            value={eventDate}
-            onChange={(e) => setEventDate(e.target.value)}
-          />
-          <Input
-            label="Advance Paid"
-            name="advancePaid"
-            type="number"
-            min="0"
-            step="0.01"
-            value={advancePaid}
-            onChange={(e) => setAdvancePaid(e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
-      )}
 
       {/* Line Items */}
       <div>

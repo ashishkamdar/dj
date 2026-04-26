@@ -22,7 +22,7 @@ export default async function EditOrderPage({
 
   // Load active firms
   const firms = await adminDb
-    .select({ id: schema.firms.id, name: schema.firms.name })
+    .select({ id: schema.firms.id, name: schema.firms.name, isGstRegistered: schema.firms.isGstRegistered })
     .from(schema.firms)
     .where(and(eq(schema.firms.tenantId, tenantId), eq(schema.firms.isActive, true)));
 

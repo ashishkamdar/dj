@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { renderInvoicePDF } from "@/lib/pdf";
+import { requireAuth } from "@/lib/session";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { tenantId } = await requireAuth();
     const { id } = await params;
     const invoiceId = parseInt(id, 10);
 
@@ -16,7 +18,7 @@ export async function GET(
       );
     }
 
-    const buffer = await renderInvoicePDF(invoiceId);
+    const buffer = await renderInvoicePDF(tenantId, invoiceId);
     const uint8 = new Uint8Array(buffer);
 
     return new NextResponse(uint8, {

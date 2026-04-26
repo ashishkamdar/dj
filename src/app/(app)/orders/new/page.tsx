@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/session";
-import { db, schema } from "@/db";
+import { withTenantDb, schema } from "@/db";
 import { eq, desc } from "drizzle-orm";
 import { OrderForm } from "@/components/orders/order-form";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -11,43 +11,44 @@ export default async function NewOrderPage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
   const { date: dateParam } = await searchParams;
   const date = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
     ? dateParam
     : todayString();
 
-  // Load active firms
-  const firms = db
-    .select({ id: schema.firms.id, name: schema.firms.name })
-    .from(schema.firms)
-    .where(eq(schema.firms.isActive, true))
-    .all();
+  const { firms, clients, products } = await withTenantDb(tenantId, async (db) => {
+    // Load active firms
+    const firms = await db
+      .select({ id: schema.firms.id, name: schema.firms.name })
+      .from(schema.firms)
+      .where(eq(schema.firms.isActive, true));
 
-  // Load active clients, recurring first
-  const clients = db
-    .select({
-      id: schema.clients.id,
-      shopName: schema.clients.shopName,
-      isRecurring: schema.clients.isRecurring,
-      defaultFirmId: schema.clients.defaultFirmId,
-    })
-    .from(schema.clients)
-    .where(eq(schema.clients.isActive, true))
-    .orderBy(desc(schema.clients.isRecurring))
-    .all();
+    // Load active clients, recurring first
+    const clients = await db
+      .select({
+        id: schema.clients.id,
+        shopName: schema.clients.shopName,
+        isRecurring: schema.clients.isRecurring,
+        defaultFirmId: schema.clients.defaultFirmId,
+      })
+      .from(schema.clients)
+      .where(eq(schema.clients.isActive, true))
+      .orderBy(desc(schema.clients.isRecurring));
 
-  // Load active products
-  const products = db
-    .select({
-      id: schema.products.id,
-      name: schema.products.name,
-      defaultUnit: schema.products.defaultUnit,
-      defaultRate: schema.products.defaultRate,
-    })
-    .from(schema.products)
-    .where(eq(schema.products.isActive, true))
-    .all();
+    // Load active products
+    const products = await db
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        defaultUnit: schema.products.defaultUnit,
+        defaultRate: schema.products.defaultRate,
+      })
+      .from(schema.products)
+      .where(eq(schema.products.isActive, true));
+
+    return { firms, clients, products };
+  });
 
   const formattedDate = new Date(date + "T00:00:00").toLocaleDateString(
     "en-IN",

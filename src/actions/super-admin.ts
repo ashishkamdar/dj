@@ -1,6 +1,6 @@
 "use server";
 
-import { adminDb, schema } from "@/db";
+import { adminDb, withTenantDb, schema } from "@/db";
 import { eq, sql, desc } from "drizzle-orm";
 import {
   requireSuperAdmin,
@@ -125,22 +125,23 @@ export async function approveTenant(tenantId: number) {
 
   if (!tenant) throw new Error("Tenant not found");
 
-  // Create default admin user with PIN 1234
-  await adminDb.insert(schema.users).values({
-    tenantId,
-    name: tenant.ownerName,
-    pin: hashSync("1234", 10),
-    role: "admin",
-    isActive: true,
-  });
+  // Create default admin user and firm (via withTenantDb for RLS)
+  await withTenantDb(tenantId, async (db) => {
+    await db.insert(schema.users).values({
+      tenantId,
+      name: tenant.ownerName,
+      pin: hashSync("1234", 10),
+      role: "admin",
+      isActive: true,
+    });
 
-  // Create default firm
-  await adminDb.insert(schema.firms).values({
-    tenantId,
-    name: tenant.name,
-    email: tenant.ownerEmail,
-    phone: tenant.ownerPhone ?? "",
-    isActive: true,
+    await db.insert(schema.firms).values({
+      tenantId,
+      name: tenant.name,
+      email: tenant.ownerEmail,
+      phone: tenant.ownerPhone ?? "",
+      isActive: true,
+    });
   });
 
   revalidatePath("/super-admin");
@@ -256,22 +257,23 @@ export async function createTenantManually(
     })
     .returning();
 
-  // Create default admin user with PIN 1234
-  await adminDb.insert(schema.users).values({
-    tenantId: tenant.id,
-    name: ownerName,
-    pin: hashSync("1234", 10),
-    role: "admin",
-    isActive: true,
-  });
+  // Create default admin user and firm (via withTenantDb for RLS)
+  await withTenantDb(tenant.id, async (db) => {
+    await db.insert(schema.users).values({
+      tenantId: tenant.id,
+      name: ownerName,
+      pin: hashSync("1234", 10),
+      role: "admin",
+      isActive: true,
+    });
 
-  // Create default firm
-  await adminDb.insert(schema.firms).values({
-    tenantId: tenant.id,
-    name,
-    email: ownerEmail.toLowerCase(),
-    phone: ownerPhone,
-    isActive: true,
+    await db.insert(schema.firms).values({
+      tenantId: tenant.id,
+      name,
+      email: ownerEmail.toLowerCase(),
+      phone: ownerPhone,
+      isActive: true,
+    });
   });
 
   revalidatePath("/super-admin");
@@ -284,10 +286,11 @@ export async function impersonateTenant(tenantId: number) {
   await requireSuperAdmin();
 
   // Find admin user for the tenant
-  const [adminUser] = await adminDb
+  const rows = await adminDb
     .select()
     .from(schema.users)
     .where(eq(schema.users.tenantId, tenantId));
+  const adminUser = rows.find((u) => u.role === "admin" && u.isActive) ?? null;
 
   if (!adminUser) {
     throw new Error("No user found for this tenant");

@@ -21,7 +21,10 @@ async function setupRLS() {
     for (const table of TENANT_TABLES) {
       console.log(`Setting up RLS for ${table}...`);
       await client.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
-      await client.query(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
+      // Note: we do NOT use FORCE ROW LEVEL SECURITY here.
+      // The table owner (kachaapakka_app) can bypass RLS for admin queries.
+      // Tenant isolation is enforced by withTenantDb() which sets app.tenant_id.
+      await client.query(`ALTER TABLE ${table} NO FORCE ROW LEVEL SECURITY`);
       await client.query(`DROP POLICY IF EXISTS tenant_isolation ON ${table}`);
       await client.query(`
         CREATE POLICY tenant_isolation ON ${table}

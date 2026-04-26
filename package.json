@@ -10,7 +10,8 @@
     "db:seed": "npx tsx src/db/seed.ts",
     "db:push": "npx drizzle-kit push",
     "db:generate": "npx drizzle-kit generate",
-    "db:studio": "npx drizzle-kit studio"
+    "db:studio": "npx drizzle-kit studio",
+    "db:migrate-sqlite": "npx tsx scripts/migrate-sqlite-to-pg.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

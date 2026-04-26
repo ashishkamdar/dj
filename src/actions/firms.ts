@@ -1,27 +1,23 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, withTenantDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getFirms() {
   const { tenantId } = await requireAdmin();
-  return withTenantDb(tenantId, async (db) => {
-    return db.select().from(schema.firms);
-  });
+  return adminDb.select().from(schema.firms).where(eq(schema.firms.tenantId, tenantId));
 }
 
 export async function getFirm(id: number) {
   const { tenantId } = await requireAdmin();
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db
-      .select()
-      .from(schema.firms)
-      .where(eq(schema.firms.id, id));
-    return rows[0] ?? null;
-  });
+  const rows = await adminDb
+    .select()
+    .from(schema.firms)
+    .where(and(eq(schema.firms.tenantId, tenantId), eq(schema.firms.id, id)));
+  return rows[0] ?? null;
 }
 
 export async function createFirm(formData: FormData) {

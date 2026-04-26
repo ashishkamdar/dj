@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/session";
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
@@ -21,74 +21,66 @@ export default async function InvoicePage({
   const orderId = parseInt(idStr, 10);
   if (isNaN(orderId)) notFound();
 
-  const data = await withTenantDb(tenantId, async (db) => {
-    // Load order
-    const orderRows = await db
-      .select({
-        id: schema.orders.id,
-        date: schema.orders.date,
-        clientId: schema.orders.clientId,
-        firmId: schema.orders.firmId,
-        billingType: schema.orders.billingType,
-        status: schema.orders.status,
-        eventName: schema.orders.eventName,
-        eventDate: schema.orders.eventDate,
-        advancePaid: schema.orders.advancePaid,
-      })
-      .from(schema.orders)
-      .where(eq(schema.orders.id, orderId));
-    const order = orderRows[0];
-    if (!order) return null;
+  // Load order
+  const orderRows = await adminDb
+    .select({
+      id: schema.orders.id,
+      date: schema.orders.date,
+      clientId: schema.orders.clientId,
+      firmId: schema.orders.firmId,
+      billingType: schema.orders.billingType,
+      status: schema.orders.status,
+      eventName: schema.orders.eventName,
+      eventDate: schema.orders.eventDate,
+      advancePaid: schema.orders.advancePaid,
+    })
+    .from(schema.orders)
+    .where(and(eq(schema.orders.tenantId, tenantId), eq(schema.orders.id, orderId)));
+  const order = orderRows[0];
+  if (!order) notFound();
 
-    // Load firm
-    const firmRows = await db
-      .select()
-      .from(schema.firms)
-      .where(eq(schema.firms.id, order.firmId));
-    const firm = firmRows[0];
-    if (!firm) return null;
+  // Load firm
+  const firmRows = await adminDb
+    .select()
+    .from(schema.firms)
+    .where(and(eq(schema.firms.tenantId, tenantId), eq(schema.firms.id, order.firmId)));
+  const firm = firmRows[0];
+  if (!firm) notFound();
 
-    // Load client
-    const clientRows = await db
-      .select()
-      .from(schema.clients)
-      .where(eq(schema.clients.id, order.clientId));
-    const client = clientRows[0];
-    if (!client) return null;
+  // Load client
+  const clientRows = await adminDb
+    .select()
+    .from(schema.clients)
+    .where(and(eq(schema.clients.tenantId, tenantId), eq(schema.clients.id, order.clientId)));
+  const client = clientRows[0];
+  if (!client) notFound();
 
-    // Load order items with product details
-    const orderItems = await db
-      .select({
-        id: schema.orderItems.id,
-        productId: schema.orderItems.productId,
-        quantity: schema.orderItems.quantity,
-        unit: schema.orderItems.unit,
-        rate: schema.orderItems.rate,
-        amount: schema.orderItems.amount,
-        productName: schema.products.name,
-        hsnCode: schema.products.hsnCode,
-        gstRatePercent: schema.products.gstRatePercent,
-      })
-      .from(schema.orderItems)
-      .leftJoin(
-        schema.products,
-        eq(schema.orderItems.productId, schema.products.id)
-      )
-      .where(eq(schema.orderItems.orderId, orderId));
+  // Load order items with product details
+  const orderItems = await adminDb
+    .select({
+      id: schema.orderItems.id,
+      productId: schema.orderItems.productId,
+      quantity: schema.orderItems.quantity,
+      unit: schema.orderItems.unit,
+      rate: schema.orderItems.rate,
+      amount: schema.orderItems.amount,
+      productName: schema.products.name,
+      hsnCode: schema.products.hsnCode,
+      gstRatePercent: schema.products.gstRatePercent,
+    })
+    .from(schema.orderItems)
+    .leftJoin(
+      schema.products,
+      eq(schema.orderItems.productId, schema.products.id)
+    )
+    .where(eq(schema.orderItems.orderId, orderId));
 
-    // Check if invoice already exists
-    const invoiceRows = await db
-      .select()
-      .from(schema.invoices)
-      .where(eq(schema.invoices.orderId, orderId));
-    const existingInvoice = invoiceRows[0] ?? null;
-
-    return { order, firm, client, orderItems, existingInvoice };
-  });
-
-  if (!data) notFound();
-
-  const { order, firm, client, orderItems, existingInvoice } = data;
+  // Check if invoice already exists
+  const invoiceRows = await adminDb
+    .select()
+    .from(schema.invoices)
+    .where(and(eq(schema.invoices.tenantId, tenantId), eq(schema.invoices.orderId, orderId)));
+  const existingInvoice = invoiceRows[0] ?? null;
 
   // Calculate totals (same logic as createInvoice action)
   const subtotal = orderItems.reduce((sum, item) => sum + item.amount, 0);

@@ -1,6 +1,6 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
+import { adminDb, withTenantDb, schema } from "@/db";
 import { eq, and, or, like, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { revalidatePath } from "next/cache";
@@ -9,41 +9,38 @@ import { redirect } from "next/navigation";
 export async function getClients(search?: string) {
   const { tenantId } = await requireAuth();
 
-  return withTenantDb(tenantId, async (db) => {
-    if (search && search.trim()) {
-      const pattern = `%${search.trim()}%`;
-      return db
-        .select()
-        .from(schema.clients)
-        .where(
-          and(
-            eq(schema.clients.isActive, true),
-            or(
-              like(schema.clients.shopName, pattern),
-              like(schema.clients.ownerName, pattern)
-            )
-          )
-        )
-        .orderBy(desc(schema.clients.isRecurring));
-    }
-
-    return db
+  if (search && search.trim()) {
+    const pattern = `%${search.trim()}%`;
+    return adminDb
       .select()
       .from(schema.clients)
-      .where(eq(schema.clients.isActive, true))
+      .where(
+        and(
+          eq(schema.clients.tenantId, tenantId),
+          eq(schema.clients.isActive, true),
+          or(
+            like(schema.clients.shopName, pattern),
+            like(schema.clients.ownerName, pattern)
+          )
+        )
+      )
       .orderBy(desc(schema.clients.isRecurring));
-  });
+  }
+
+  return adminDb
+    .select()
+    .from(schema.clients)
+    .where(and(eq(schema.clients.tenantId, tenantId), eq(schema.clients.isActive, true)))
+    .orderBy(desc(schema.clients.isRecurring));
 }
 
 export async function getClient(id: number) {
   const { tenantId } = await requireAuth();
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db
-      .select()
-      .from(schema.clients)
-      .where(eq(schema.clients.id, id));
-    return rows[0] ?? null;
-  });
+  const rows = await adminDb
+    .select()
+    .from(schema.clients)
+    .where(and(eq(schema.clients.tenantId, tenantId), eq(schema.clients.id, id)));
+  return rows[0] ?? null;
 }
 
 export async function createClient(formData: FormData) {

@@ -1,33 +1,31 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, withTenantDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getProducts(activeOnly = true) {
   const { tenantId } = await requireAdmin();
-  return withTenantDb(tenantId, async (db) => {
-    if (activeOnly) {
-      return db
-        .select()
-        .from(schema.products)
-        .where(eq(schema.products.isActive, true));
-    }
-    return db.select().from(schema.products);
-  });
+  if (activeOnly) {
+    return adminDb
+      .select()
+      .from(schema.products)
+      .where(
+        and(eq(schema.products.tenantId, tenantId), eq(schema.products.isActive, true))
+      );
+  }
+  return adminDb.select().from(schema.products).where(eq(schema.products.tenantId, tenantId));
 }
 
 export async function getProduct(id: number) {
   const { tenantId } = await requireAdmin();
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id));
-    return rows[0] ?? null;
-  });
+  const rows = await adminDb
+    .select()
+    .from(schema.products)
+    .where(and(eq(schema.products.tenantId, tenantId), eq(schema.products.id, id)));
+  return rows[0] ?? null;
 }
 
 export async function createProduct(formData: FormData) {

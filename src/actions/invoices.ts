@@ -1,7 +1,7 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, withTenantDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { generateInvoiceNumber } from "@/lib/invoice-number";
 import { getClientBalance } from "@/lib/ledger";
@@ -86,16 +86,14 @@ export async function createInvoice(formData: FormData) {
 
 export async function getInvoice(id: number) {
   const { tenantId } = await requireAuth();
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db.select().from(schema.invoices).where(eq(schema.invoices.id, id));
-    return rows[0] ?? null;
-  });
+  const rows = await adminDb.select().from(schema.invoices)
+    .where(and(eq(schema.invoices.tenantId, tenantId), eq(schema.invoices.id, id)));
+  return rows[0] ?? null;
 }
 
 export async function getInvoiceByOrder(orderId: number) {
   const { tenantId } = await requireAuth();
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db.select().from(schema.invoices).where(eq(schema.invoices.orderId, orderId));
-    return rows[0] ?? null;
-  });
+  const rows = await adminDb.select().from(schema.invoices)
+    .where(and(eq(schema.invoices.tenantId, tenantId), eq(schema.invoices.orderId, orderId)));
+  return rows[0] ?? null;
 }

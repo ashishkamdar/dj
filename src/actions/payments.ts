@@ -1,7 +1,7 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, withTenantDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -37,8 +37,6 @@ export async function createPayment(formData: FormData) {
 
 export async function getPaymentsByClient(clientId: number) {
   const { tenantId } = await requireAuth();
-  return withTenantDb(tenantId, async (db) => {
-    return db.select().from(schema.payments)
-      .where(eq(schema.payments.clientId, clientId));
-  });
+  return adminDb.select().from(schema.payments)
+    .where(and(eq(schema.payments.tenantId, tenantId), eq(schema.payments.clientId, clientId)));
 }

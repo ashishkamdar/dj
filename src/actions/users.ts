@@ -1,6 +1,6 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
+import { adminDb, withTenantDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { hashPin } from "@/lib/auth";
@@ -8,9 +8,7 @@ import { revalidatePath } from "next/cache";
 
 export async function getUsers() {
   const { tenantId } = await requireAdmin();
-  return withTenantDb(tenantId, async (db) => {
-    return db.select().from(schema.users);
-  });
+  return adminDb.select().from(schema.users).where(eq(schema.users.tenantId, tenantId));
 }
 
 export async function createUser(formData: FormData) {

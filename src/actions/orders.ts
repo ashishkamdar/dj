@@ -1,7 +1,7 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { adminDb, withTenantDb, schema } from "@/db";
+import { and, eq, gte, lte, sql, inArray } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -16,149 +16,142 @@ export async function getOrderCountsByMonth(
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-  return withTenantDb(tenantId, async (db) => {
-    const results = await db
-      .select({
-        date: schema.orders.date,
-        count: sql<number>`count(*)`.as("count"),
-      })
-      .from(schema.orders)
-      .where(
-        and(
-          gte(schema.orders.date, startDate),
-          lte(schema.orders.date, endDate),
-        ),
-      )
-      .groupBy(schema.orders.date);
+  const results = await adminDb
+    .select({
+      date: schema.orders.date,
+      count: sql<number>`count(*)`.as("count"),
+    })
+    .from(schema.orders)
+    .where(
+      and(
+        eq(schema.orders.tenantId, tenantId),
+        gte(schema.orders.date, startDate),
+        lte(schema.orders.date, endDate),
+      ),
+    )
+    .groupBy(schema.orders.date);
 
-    const counts: Record<string, number> = {};
-    for (const row of results) {
-      counts[row.date] = row.count;
-    }
-    return counts;
-  });
+  const counts: Record<string, number> = {};
+  for (const row of results) {
+    counts[row.date] = row.count;
+  }
+  return counts;
 }
 
 export async function getOrdersByDate(date: string) {
   const { tenantId } = await requireAuth();
 
-  return withTenantDb(tenantId, async (db) => {
-    const orders = await db
-      .select({
-        id: schema.orders.id,
-        date: schema.orders.date,
-        clientId: schema.orders.clientId,
-        firmId: schema.orders.firmId,
-        billingType: schema.orders.billingType,
-        status: schema.orders.status,
-        notes: schema.orders.notes,
-        eventDate: schema.orders.eventDate,
-        eventName: schema.orders.eventName,
-        advancePaid: schema.orders.advancePaid,
-        createdAt: schema.orders.createdAt,
-        shopName: schema.clients.shopName,
-      })
-      .from(schema.orders)
-      .leftJoin(schema.clients, eq(schema.orders.clientId, schema.clients.id))
-      .where(eq(schema.orders.date, date));
+  const orders = await adminDb
+    .select({
+      id: schema.orders.id,
+      date: schema.orders.date,
+      clientId: schema.orders.clientId,
+      firmId: schema.orders.firmId,
+      billingType: schema.orders.billingType,
+      status: schema.orders.status,
+      notes: schema.orders.notes,
+      eventDate: schema.orders.eventDate,
+      eventName: schema.orders.eventName,
+      advancePaid: schema.orders.advancePaid,
+      createdAt: schema.orders.createdAt,
+      shopName: schema.clients.shopName,
+    })
+    .from(schema.orders)
+    .leftJoin(schema.clients, eq(schema.orders.clientId, schema.clients.id))
+    .where(and(eq(schema.orders.tenantId, tenantId), eq(schema.orders.date, date)));
 
-    // For each order, get items count and total
-    const ordersWithTotals = await Promise.all(
-      orders.map(async (order) => {
-        const itemsDataRows = await db
-          .select({
-            count: sql<number>`count(*)`.as("count"),
-            total: sql<number>`coalesce(sum(${schema.orderItems.amount}), 0)`.as(
-              "total",
-            ),
-          })
-          .from(schema.orderItems)
-          .where(eq(schema.orderItems.orderId, order.id));
-        const itemsData = itemsDataRows[0];
+  if (orders.length === 0) return [];
 
-        const items = await db
-          .select({
-            productName: schema.products.name,
-            quantity: schema.orderItems.quantity,
-            unit: schema.orderItems.unit,
-          })
-          .from(schema.orderItems)
-          .leftJoin(
-            schema.products,
-            eq(schema.orderItems.productId, schema.products.id),
-          )
-          .where(eq(schema.orderItems.orderId, order.id));
+  const orderIds = orders.map((o) => o.id);
 
-        return {
-          ...order,
-          itemsCount: itemsData?.count ?? 0,
-          totalAmount: itemsData?.total ?? 0,
-          items: items.map((i) => ({
-            name: i.productName ?? "Unknown",
-            quantity: i.quantity,
-            unit: i.unit,
-          })),
-        };
-      }),
-    );
+  // Fetch ALL items for ALL orders in ONE query (fixes N+1)
+  const allItems = await adminDb
+    .select({
+      orderId: schema.orderItems.orderId,
+      productName: schema.products.name,
+      quantity: schema.orderItems.quantity,
+      unit: schema.orderItems.unit,
+      amount: schema.orderItems.amount,
+    })
+    .from(schema.orderItems)
+    .leftJoin(schema.products, eq(schema.orderItems.productId, schema.products.id))
+    .where(inArray(schema.orderItems.orderId, orderIds));
 
-    return ordersWithTotals;
+  // Group items by orderId
+  const itemsByOrder = new Map<number, typeof allItems>();
+  for (const item of allItems) {
+    const arr = itemsByOrder.get(item.orderId) ?? [];
+    arr.push(item);
+    itemsByOrder.set(item.orderId, arr);
+  }
+
+  return orders.map((order) => {
+    const items = itemsByOrder.get(order.id) ?? [];
+    const totalAmount = items.reduce((sum, i) => sum + i.amount, 0);
+    return {
+      ...order,
+      itemsCount: items.length,
+      totalAmount,
+      items: items.map((i) => ({
+        name: i.productName ?? "Unknown",
+        quantity: i.quantity,
+        unit: i.unit,
+      })),
+    };
   });
 }
 
 export async function getOrder(id: number) {
   const { tenantId } = await requireAuth();
 
-  return withTenantDb(tenantId, async (db) => {
-    const rows = await db
-      .select({
-        id: schema.orders.id,
-        date: schema.orders.date,
-        clientId: schema.orders.clientId,
-        firmId: schema.orders.firmId,
-        billingType: schema.orders.billingType,
-        status: schema.orders.status,
-        notes: schema.orders.notes,
-        eventDate: schema.orders.eventDate,
-        eventName: schema.orders.eventName,
-        advancePaid: schema.orders.advancePaid,
-        createdBy: schema.orders.createdBy,
-        createdAt: schema.orders.createdAt,
-        shopName: schema.clients.shopName,
-        ownerName: schema.clients.ownerName,
-        clientPhone: schema.clients.phone,
-        firmName: schema.firms.name,
-      })
-      .from(schema.orders)
-      .leftJoin(schema.clients, eq(schema.orders.clientId, schema.clients.id))
-      .leftJoin(schema.firms, eq(schema.orders.firmId, schema.firms.id))
-      .where(eq(schema.orders.id, id));
+  const rows = await adminDb
+    .select({
+      id: schema.orders.id,
+      date: schema.orders.date,
+      clientId: schema.orders.clientId,
+      firmId: schema.orders.firmId,
+      billingType: schema.orders.billingType,
+      status: schema.orders.status,
+      notes: schema.orders.notes,
+      eventDate: schema.orders.eventDate,
+      eventName: schema.orders.eventName,
+      advancePaid: schema.orders.advancePaid,
+      createdBy: schema.orders.createdBy,
+      createdAt: schema.orders.createdAt,
+      shopName: schema.clients.shopName,
+      ownerName: schema.clients.ownerName,
+      clientPhone: schema.clients.phone,
+      firmName: schema.firms.name,
+    })
+    .from(schema.orders)
+    .leftJoin(schema.clients, eq(schema.orders.clientId, schema.clients.id))
+    .leftJoin(schema.firms, eq(schema.orders.firmId, schema.firms.id))
+    .where(and(eq(schema.orders.tenantId, tenantId), eq(schema.orders.id, id)));
 
-    const order = rows[0] ?? null;
-    if (!order) return null;
+  const order = rows[0] ?? null;
+  if (!order) return null;
 
-    const items = await db
-      .select({
-        id: schema.orderItems.id,
-        productId: schema.orderItems.productId,
-        quantity: schema.orderItems.quantity,
-        unit: schema.orderItems.unit,
-        rate: schema.orderItems.rate,
-        amount: schema.orderItems.amount,
-        itemStatus: schema.orderItems.itemStatus,
-        productName: schema.products.name,
-      })
-      .from(schema.orderItems)
-      .leftJoin(
-        schema.products,
-        eq(schema.orderItems.productId, schema.products.id),
-      )
-      .where(eq(schema.orderItems.orderId, id));
+  const items = await adminDb
+    .select({
+      id: schema.orderItems.id,
+      productId: schema.orderItems.productId,
+      quantity: schema.orderItems.quantity,
+      unit: schema.orderItems.unit,
+      rate: schema.orderItems.rate,
+      amount: schema.orderItems.amount,
+      itemStatus: schema.orderItems.itemStatus,
+      productName: schema.products.name,
+    })
+    .from(schema.orderItems)
+    .leftJoin(
+      schema.products,
+      eq(schema.orderItems.productId, schema.products.id),
+    )
+    .where(eq(schema.orderItems.orderId, id));
 
-    const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
 
-    return { ...order, items, totalAmount };
-  });
+  return { ...order, items, totalAmount };
 }
 
 export async function createOrder(formData: FormData) {
@@ -215,19 +208,19 @@ export async function createOrder(formData: FormData) {
       .returning({ id: schema.orders.id });
     const order = orderRows[0];
 
-    for (const item of items) {
-      await db.insert(schema.orderItems)
-        .values({
-          tenantId,
-          orderId: order.id,
-          productId: item.productId,
-          quantity: item.quantity,
-          unit: item.unit,
-          rate: item.rate,
-          amount: item.quantity * item.rate,
-          updatedBy: user.id,
-        });
-    }
+    // Batch insert all items at once
+    await db.insert(schema.orderItems).values(
+      items.map((item) => ({
+        tenantId,
+        orderId: order.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        amount: item.quantity * item.rate,
+        updatedBy: user.id,
+      }))
+    );
   });
 
   revalidatePath(`/calendar/${date}`);
@@ -289,19 +282,19 @@ export async function updateOrder(id: number, formData: FormData) {
     await db.delete(schema.orderItems)
       .where(eq(schema.orderItems.orderId, id));
 
-    for (const item of items) {
-      await db.insert(schema.orderItems)
-        .values({
-          tenantId,
-          orderId: id,
-          productId: item.productId,
-          quantity: item.quantity,
-          unit: item.unit,
-          rate: item.rate,
-          amount: item.quantity * item.rate,
-          updatedBy: user.id,
-        });
-    }
+    // Batch insert all items at once
+    await db.insert(schema.orderItems).values(
+      items.map((item) => ({
+        tenantId,
+        orderId: id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        amount: item.quantity * item.rate,
+        updatedBy: user.id,
+      }))
+    );
   });
 
   revalidatePath(`/calendar/${date}`);

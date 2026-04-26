@@ -70,6 +70,7 @@ export async function requireSuperAdmin(): Promise<SuperAdmin> {
   if (!session) {
     const { redirect } = await import("next/navigation");
     redirect("/super-admin/login");
+    throw new Error("Unauthorized"); // unreachable, helps TS
   }
   return session;
 }

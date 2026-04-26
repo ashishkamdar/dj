@@ -102,7 +102,7 @@ export async function updateFirm(id: number, formData: FormData) {
         bankName,
         bankAccount,
         bankIfsc,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(schema.firms.id, id));
   });

@@ -17,7 +17,7 @@ export async function updateItemStatus(
       .set({
         itemStatus: newStatus,
         updatedBy: user.id,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(schema.orderItems.id, itemId));
 

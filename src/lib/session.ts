@@ -81,6 +81,7 @@ export async function requireAuth(): Promise<SessionUser> {
   if (!session) {
     const { redirect } = await import("next/navigation");
     redirect("/login");
+    throw new Error("Unauthorized"); // unreachable, helps TS
   }
   return session;
 }

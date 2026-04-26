@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const relativePath = `/api/settings/signature/${filename}`;
   await withTenantDb(tenantId, async (db) => {
     await db.update(schema.firms)
-      .set({ signature: relativePath, updatedAt: new Date().toISOString() })
+      .set({ signature: relativePath, updatedAt: new Date() })
       .where(eq(schema.firms.id, firmId));
   });
 

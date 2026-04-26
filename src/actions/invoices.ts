@@ -76,7 +76,7 @@ export async function createInvoice(formData: FormData) {
 
     // Update order status to invoiced
     await db.update(schema.orders)
-      .set({ status: "invoiced", updatedAt: new Date().toISOString() })
+      .set({ status: "invoiced", updatedAt: new Date() })
       .where(eq(schema.orders.id, orderId));
 
     revalidatePath(`/orders/${orderId}`);

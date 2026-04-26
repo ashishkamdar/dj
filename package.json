@@ -11,6 +11,7 @@
     "db:push": "npx drizzle-kit push",
     "db:generate": "npx drizzle-kit generate",
     "db:studio": "npx drizzle-kit studio",
+    "db:rls": "npx tsx src/db/rls.ts",
     "db:migrate-sqlite": "npx tsx scripts/migrate-sqlite-to-pg.ts"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 "use server";
 
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 import { verifyPin } from "@/lib/auth";
 import { setSession, clearSession } from "@/lib/session";
 import { resolveTenant } from "@/lib/tenant";
@@ -17,23 +17,22 @@ export async function loginAction(pin: string): Promise<{ error?: string }> {
   if (tenant.status === "pending") return { error: "Account awaiting approval" };
   if (tenant.status === "suspended") return { error: "Account suspended" };
 
-  const matched = await withTenantDb(tenant.id, async (db) => {
-    const activeUsers = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.isActive, true));
+  // Use adminDb (bypasses RLS) with explicit tenant filter — fast, no extra connection
+  const activeUsers = await adminDb
+    .select()
+    .from(schema.users)
+    .where(
+      and(
+        eq(schema.users.tenantId, tenant.id),
+        eq(schema.users.isActive, true),
+      ),
+    );
 
-    for (const user of activeUsers) {
-      if (verifyPin(pin, user.pin)) {
-        return user;
-      }
+  for (const user of activeUsers) {
+    if (verifyPin(pin, user.pin)) {
+      await setSession(tenant.id, user.id);
+      redirect("/calendar");
     }
-    return null;
-  });
-
-  if (matched) {
-    await setSession(tenant.id, matched.id);
-    redirect("/calendar");
   }
 
   return { error: "Invalid PIN" };

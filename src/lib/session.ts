@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { withTenantDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { adminDb, schema } from "@/db";
+import { and, eq } from "drizzle-orm";
 
 const COOKIE_NAME = "kp-session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -51,13 +51,17 @@ export async function getSession(): Promise<SessionUser | null> {
       Buffer.from(cookie.value, "base64").toString("utf-8"),
     );
 
-    const user = await withTenantDb(payload.tenantId, async (db) => {
-      const rows = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, payload.userId));
-      return rows[0] ?? null;
-    });
+    // Use adminDb (bypasses RLS) — fast, no extra connection needed
+    const rows = await adminDb
+      .select()
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.id, payload.userId),
+          eq(schema.users.tenantId, payload.tenantId),
+        ),
+      );
+    const user = rows[0] ?? null;
 
     if (!user || !user.isActive) return null;
 

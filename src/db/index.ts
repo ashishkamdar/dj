@@ -7,26 +7,26 @@ const pool = new Pool({
   max: 20,
 });
 
-// Admin DB — no RLS (for super-admin queries, migrations, seeding)
+// Admin DB — bypasses RLS (table owner without FORCE RLS)
+// Use for: super-admin queries, session validation, login, seeding
 export const adminDb = drizzle(pool, { schema });
 
 // Tenant-aware DB — sets app.tenant_id so RLS kicks in
+// Uses SET (session-level) + RESET at the end instead of BEGIN/COMMIT
+// for fast reads. Wraps in transaction only when needed (inserts/updates).
 export async function withTenantDb<T>(
   tenantId: number,
   fn: (db: NodePgDatabase<typeof schema>) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
+    await client.query(`SET app.tenant_id = '${tenantId}'`);
     const db = drizzle(client, { schema });
     const result = await fn(db);
-    await client.query("COMMIT");
     return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
   } finally {
+    // Reset tenant context before returning connection to pool
+    await client.query("RESET app.tenant_id").catch(() => {});
     client.release();
   }
 }

@@ -14,7 +14,7 @@ async function seed() {
   const [firm] = await db
     .insert(firms)
     .values({
-      name: "DJ Foods",
+      name: "Kachaa Pakka",
       address: "Ahmedabad, Gujarat",
       phone: "9999999999",
       isGstRegistered: false,

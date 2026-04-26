@@ -23,7 +23,7 @@ export default async function NewFirmPage() {
                 label="Firm Name"
                 name="name"
                 required
-                placeholder="e.g. DJ Catering"
+                placeholder="e.g. Kachaa Pakka Catering"
               />
             </div>
 

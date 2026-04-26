@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { ThemeToggle } from "./theme-toggle";
 import { logoutAction } from "@/actions/auth";
+import { Logo, LogoIcon } from "@/components/ui/logo";
 
 const navItems = [
   { key: "calendar" as const, href: "/calendar", icon: CalendarDaysIcon },
@@ -36,12 +37,8 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
       <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-gray-50 px-6 dark:border-white/10 dark:bg-gray-900">
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            DJ
-          </div>
-          <span className="text-lg font-semibold text-gray-900 dark:text-white">
-            DJ Foods
-          </span>
+          <LogoIcon />
+          <Logo className="h-8" />
         </div>
 
         {/* Navigation */}

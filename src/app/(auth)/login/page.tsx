@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { loginAction } from "@/actions/auth";
+import { Logo } from "@/components/ui/logo";
 
 const MAX_PIN_LENGTH = 6;
 const MIN_PIN_LENGTH = 4;
@@ -41,9 +42,9 @@ export default function LoginPage() {
     <div className="flex w-full max-w-sm flex-col items-center px-6">
       {/* Header */}
       <div className="mb-10 text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-          DJ Foods
-        </h1>
+        <div className="mb-2 flex justify-center">
+          <Logo className="h-12" />
+        </div>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Enter your PIN to continue
         </p>

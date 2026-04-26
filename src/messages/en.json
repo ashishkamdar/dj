@@ -27,7 +27,7 @@
     "logout": "Logout"
   },
   "login": {
-    "title": "DJ Foods",
+    "title": "Kachaa Pakka",
     "subtitle": "Enter your PIN to continue",
     "invalidPin": "Invalid PIN",
     "pinRequired": "PIN must be at least 4 digits"

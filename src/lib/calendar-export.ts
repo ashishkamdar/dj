@@ -42,7 +42,7 @@ export function generateIcsForOrders(orders: CalendarOrder[]): string {
   let ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//DJ Foods//Order Calendar//EN",
+    "PRODID:-//Kachaa Pakka//Order Calendar//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
   ];

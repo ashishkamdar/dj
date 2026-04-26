@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 80" fill="none">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e85d04"/>
+      <stop offset="100%" stop-color="#dc2f02"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f48c06"/>
+      <stop offset="100%" stop-color="#e85d04"/>
+    </linearGradient>
+  </defs>
+  <!-- Background pill shape -->
+  <rect x="0" y="8" width="280" height="64" rx="32" fill="url(#brand)" opacity="0.08"/>
+  <!-- Hindi K (क) - stylized -->
+  <text x="16" y="58" font-family="'Noto Sans Devanagari', sans-serif" font-size="48" font-weight="700" fill="url(#brand)">क</text>
+  <!-- "achaa" in Latin -->
+  <text x="52" y="52" font-family="'Inter', system-ui, sans-serif" font-size="32" font-weight="600" fill="#1f2937" letter-spacing="-0.5">achaa</text>
+  <!-- Hindi P (प) - stylized -->
+  <text x="152" y="58" font-family="'Noto Sans Devanagari', sans-serif" font-size="48" font-weight="700" fill="url(#brand)">प</text>
+  <!-- "akka" in Latin -->
+  <text x="188" y="52" font-family="'Inter', system-ui, sans-serif" font-size="32" font-weight="600" fill="#1f2937" letter-spacing="-0.5">akka</text>
+  <!-- Decorative underline -->
+  <rect x="16" y="66" width="248" height="3" rx="1.5" fill="url(#accent)" opacity="0.6"/>
+</svg>

@@ -1,11 +1,11 @@
 {
-  "name": "DJ Foods",
-  "short_name": "DJ Foods",
+  "name": "Kachaa Pakka",
+  "short_name": "Kachaa Pakka",
   "description": "Food Business Management System",
   "start_url": "/calendar",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#4f46e5",
+  "theme_color": "#e85d04",
   "icons": [
     {
       "src": "/icon-192.png",

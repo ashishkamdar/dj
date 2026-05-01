@@ -10,15 +10,18 @@ import {
   getMonthlySummary,
   getProductAnalytics,
   getClientAnalytics,
+  getOverviewSummary,
   type DailySummary,
   type MonthlySummary,
   type ProductAnalyticsRow,
   type ClientAnalyticsRow,
+  type OverviewSummary,
+  type OverviewPeriod,
 } from "@/actions/analytics";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 
-const tabs = ["Daily", "Monthly", "Products", "Clients"] as const;
+const tabs = ["Overview", "Daily", "Monthly", "Products", "Clients"] as const;
 type Tab = (typeof tabs)[number];
 
 function todayString(): string {
@@ -35,7 +38,7 @@ function currentMonthYear() {
 }
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Daily");
+  const [activeTab, setActiveTab] = useState<Tab>("Overview");
 
   return (
     <div className="space-y-6">
@@ -63,10 +66,354 @@ export default function AnalyticsPage() {
         </nav>
       </div>
 
+      {activeTab === "Overview" && <OverviewTab />}
       {activeTab === "Daily" && <DailyTab />}
       {activeTab === "Monthly" && <MonthlyTab />}
       {activeTab === "Products" && <ProductsTab />}
       {activeTab === "Clients" && <ClientsTab />}
+    </div>
+  );
+}
+
+// ── Overview Tab ──────────────────────────────────────────────────────
+
+function getIsoWeek(d: Date): string {
+  // Returns "YYYY-Www"
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  const week =
+    1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+  return `${d.getFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function OverviewTab() {
+  const now = new Date();
+  const [period, setPeriod] = useState<OverviewPeriod>("month");
+  const [weekAnchor, setWeekAnchor] = useState(getIsoWeek(now));
+  const [monthAnchor, setMonthAnchor] = useState(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
+  );
+  const [yearAnchor, setYearAnchor] = useState(String(now.getFullYear()));
+  const [data, setData] = useState<OverviewSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const anchor =
+    period === "week"
+      ? weekAnchor
+      : period === "month"
+        ? monthAnchor
+        : yearAnchor;
+
+  useEffect(() => {
+    setLoading(true);
+    getOverviewSummary(period, anchor).then((d) => {
+      setData(d);
+      setLoading(false);
+    });
+  }, [period, anchor]);
+
+  return (
+    <div className="space-y-6">
+      {/* Period toggle */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-md bg-gray-100 p-1 dark:bg-white/5">
+          {(["week", "month", "year"] as OverviewPeriod[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                period === p
+                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+                  : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        {period === "week" && (
+          <input
+            type="week"
+            value={weekAnchor}
+            onChange={(e) => setWeekAnchor(e.target.value)}
+            className="rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+          />
+        )}
+        {period === "month" && (
+          <input
+            type="month"
+            value={monthAnchor}
+            onChange={(e) => setMonthAnchor(e.target.value)}
+            className="rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+          />
+        )}
+        {period === "year" && (
+          <select
+            value={yearAnchor}
+            onChange={(e) => setYearAnchor(e.target.value)}
+            className="rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+          >
+            {Array.from({ length: 4 }).map((_, i) => {
+              const y = now.getFullYear() - i;
+              return (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              );
+            })}
+          </select>
+        )}
+        {data && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {data.range.from} → {data.range.to}
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Spinner className="size-8" />
+        </div>
+      ) : data ? (
+        <>
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <KpiCard label="Revenue" value={formatCurrency(data.revenue)} />
+            <KpiCard label="Orders" value={String(data.orderCount)} />
+            <KpiCard
+              label="Avg Order Value"
+              value={formatCurrency(data.avgOrderValue)}
+            />
+            <KpiCard
+              label="Items Sold"
+              value={`${Math.round(data.itemsSold * 10) / 10} kg`}
+            />
+            <KpiCard
+              label="GST Collected"
+              value={formatCurrency(data.gstCollected)}
+            />
+            <KpiCard
+              label="Payments Received"
+              value={formatCurrency(data.paymentsReceived)}
+              tone="positive"
+            />
+            <KpiCard
+              label="Outstanding (now)"
+              value={formatCurrency(data.outstandingTotal)}
+              tone={data.outstandingTotal > 0 ? "negative" : "neutral"}
+            />
+            <KpiCard label="Active Clients" value={String(data.activeClients)} />
+          </div>
+
+          {/* Billing-type split */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <SplitCard
+              label="Kaccha (Non-GST)"
+              revenue={data.splits.kaccha.revenue}
+              orders={data.splits.kaccha.orders}
+              tone="amber"
+            />
+            <SplitCard
+              label="Pakka (GST)"
+              revenue={data.splits.pakka.revenue}
+              orders={data.splits.pakka.orders}
+              tone="indigo"
+            />
+            <SplitCard
+              label="Catering"
+              revenue={data.splits.catering.revenue}
+              orders={data.splits.catering.orders}
+              tone="purple"
+            />
+          </div>
+
+          {/* Trend chart */}
+          <div className="rounded-lg bg-white p-4 ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10">
+            <h3 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">
+              Revenue trend
+            </h3>
+            <TrendChart trend={data.trend} />
+          </div>
+
+          {/* Top lists */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <TopList
+              title="Top Products"
+              items={data.topProducts.map((p) => ({
+                primary: p.name,
+                secondary: `${Math.round(p.qty * 10) / 10} kg`,
+                value: formatCurrency(p.revenue),
+              }))}
+              empty="No products in this period."
+            />
+            <TopList
+              title="Top Clients"
+              items={data.topClients.map((c) => ({
+                primary: c.name,
+                value: formatCurrency(c.revenue),
+              }))}
+              empty="No clients in this period."
+            />
+            <TopList
+              title="Top Outstanding"
+              items={data.topOutstanding.map((c) => ({
+                primary: c.name,
+                value: formatCurrency(c.balance),
+                valueTone: "negative",
+              }))}
+              empty="All clients are settled."
+            />
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "positive" | "negative" | "neutral";
+}) {
+  const valueClass =
+    tone === "positive"
+      ? "text-green-600 dark:text-green-400"
+      : tone === "negative"
+        ? "text-red-600 dark:text-red-400"
+        : "text-gray-900 dark:text-white";
+  return (
+    <div className="rounded-lg bg-white p-3 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`mt-1 text-base font-semibold sm:text-lg ${valueClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SplitCard({
+  label,
+  revenue,
+  orders,
+  tone,
+}: {
+  label: string;
+  revenue: number;
+  orders: number;
+  tone: "amber" | "indigo" | "purple";
+}) {
+  const dot =
+    tone === "amber"
+      ? "bg-amber-500"
+      : tone === "indigo"
+        ? "bg-indigo-500"
+        : "bg-purple-500";
+  return (
+    <div className="rounded-lg bg-white p-4 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+      <div className="flex items-center gap-2">
+        <span className={`size-2 rounded-full ${dot}`} aria-hidden="true" />
+        <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+          {label}
+        </p>
+      </div>
+      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
+        {formatCurrency(revenue)}
+      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        {orders} {orders === 1 ? "order" : "orders"}
+      </p>
+    </div>
+  );
+}
+
+function TrendChart({
+  trend,
+}: {
+  trend: { label: string; revenue: number }[];
+}) {
+  const max = Math.max(...trend.map((t) => t.revenue), 1);
+  return (
+    <div className="flex h-32 items-end gap-0.5">
+      {trend.map((t, i) => (
+        <div
+          key={i}
+          className="flex flex-1 flex-col items-center"
+          title={`${t.label}: ${formatCurrency(t.revenue)}`}
+        >
+          <div
+            className="w-full min-h-[1px] rounded-t bg-indigo-500 dark:bg-indigo-400"
+            style={{ height: `${(t.revenue / max) * 100}%` }}
+          />
+          <span className="mt-1 text-[9px] text-gray-500 dark:text-gray-400">
+            {t.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TopList({
+  title,
+  items,
+  empty,
+}: {
+  title: string;
+  items: {
+    primary: string;
+    secondary?: string;
+    value: string;
+    valueTone?: "negative";
+  }[];
+  empty: string;
+}) {
+  return (
+    <div className="rounded-lg bg-white p-4 ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10">
+      <h3 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400">{empty}</p>
+      ) : (
+        <ul className="divide-y divide-gray-100 dark:divide-white/10">
+          {items.map((it, i) => (
+            <li
+              key={i}
+              className="flex items-center justify-between gap-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                  {it.primary}
+                </p>
+                {it.secondary && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {it.secondary}
+                  </p>
+                )}
+              </div>
+              <p
+                className={`shrink-0 text-sm font-semibold ${
+                  it.valueTone === "negative"
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-gray-900 dark:text-white"
+                }`}
+              >
+                {it.value}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

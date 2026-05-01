@@ -361,3 +361,311 @@ export async function getClientAnalytics(
 
   return results.sort((a, b) => b.totalRevenue - a.totalRevenue);
 }
+
+export interface SplitBucket {
+  revenue: number;
+  orders: number;
+}
+
+export interface OverviewSummary {
+  range: { from: string; to: string };
+  revenue: number;
+  orderCount: number;
+  avgOrderValue: number;
+  itemsSold: number;
+  gstCollected: number;
+  paymentsReceived: number;
+  outstandingTotal: number;
+  activeClients: number;
+  splits: { kaccha: SplitBucket; pakka: SplitBucket; catering: SplitBucket };
+  trend: { label: string; revenue: number }[];
+  topProducts: { name: string; qty: number; revenue: number }[];
+  topClients: { id: number; name: string; revenue: number }[];
+  topOutstanding: { id: number; name: string; balance: number }[];
+}
+
+export type OverviewPeriod = "week" | "month" | "year";
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function isoWeekStart(year: number, week: number): Date {
+  const jan4 = new Date(year, 0, 4);
+  const jan4Day = jan4.getDay() || 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setDate(jan4.getDate() - (jan4Day - 1));
+  const monday = new Date(week1Monday);
+  monday.setDate(week1Monday.getDate() + (week - 1) * 7);
+  return monday;
+}
+
+function computeRange(period: OverviewPeriod, anchor: string) {
+  if (period === "week") {
+    const m = /^(\d{4})-W(\d{2})$/.exec(anchor);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const w = parseInt(m[2], 10);
+      const monday = isoWeekStart(y, w);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return { from: isoDate(monday), to: isoDate(sunday) };
+    }
+    const d = new Date(anchor);
+    const day = d.getDay() || 7;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - (day - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { from: isoDate(monday), to: isoDate(sunday) };
+  }
+  if (period === "month") {
+    const m = /^(\d{4})-(\d{2})$/.exec(anchor);
+    const y = m ? parseInt(m[1], 10) : new Date().getFullYear();
+    const mo = m ? parseInt(m[2], 10) : new Date().getMonth() + 1;
+    const lastDay = new Date(y, mo, 0).getDate();
+    return { from: `${y}-${pad2(mo)}-01`, to: `${y}-${pad2(mo)}-${pad2(lastDay)}` };
+  }
+  const y = parseInt(anchor, 10) || new Date().getFullYear();
+  return { from: `${y}-01-01`, to: `${y}-12-31` };
+}
+
+function trendBucketKey(period: OverviewPeriod, date: string): string {
+  if (period === "year") return date.slice(0, 7);
+  return date;
+}
+
+function buildTrendSeries(
+  period: OverviewPeriod,
+  range: { from: string; to: string },
+  buckets: Map<string, number>,
+): { label: string; revenue: number }[] {
+  const out: { label: string; revenue: number }[] = [];
+  if (period === "year") {
+    const y = parseInt(range.from.slice(0, 4), 10);
+    for (let m = 1; m <= 12; m++) {
+      const key = `${y}-${pad2(m)}`;
+      out.push({ label: pad2(m), revenue: buckets.get(key) ?? 0 });
+    }
+    return out;
+  }
+  const start = new Date(range.from);
+  const end = new Date(range.to);
+  const days: Date[] = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    days.push(new Date(d));
+  }
+  for (const d of days) {
+    const key = isoDate(d);
+    out.push({
+      label: String(d.getDate()),
+      revenue: buckets.get(key) ?? 0,
+    });
+  }
+  return out;
+}
+
+async function aggregateOutstanding(tenantId: number) {
+  const clientRows = await adminDb
+    .select({ id: schema.clients.id, name: schema.clients.shopName })
+    .from(schema.clients)
+    .where(eq(schema.clients.tenantId, tenantId));
+
+  const balances = await Promise.all(
+    clientRows.map(async (c) => ({
+      id: c.id,
+      name: c.name,
+      balance: await getClientBalance(tenantId, c.id),
+    })),
+  );
+
+  const positives = balances.filter((b) => b.balance > 0);
+  const total = positives.reduce((s, b) => s + b.balance, 0);
+  const topClients = positives
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, 5);
+
+  return { total, topClients };
+}
+
+export async function getOverviewSummary(
+  period: OverviewPeriod,
+  anchor: string,
+): Promise<OverviewSummary> {
+  const { tenantId } = await requireAdmin();
+  const range = computeRange(period, anchor);
+
+  const [orders, paymentsInRange, outstandingAgg] = await Promise.all([
+    adminDb
+      .select({
+        id: schema.orders.id,
+        date: schema.orders.date,
+        clientId: schema.orders.clientId,
+        billingType: schema.orders.billingType,
+      })
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.tenantId, tenantId),
+          gte(schema.orders.date, range.from),
+          lte(schema.orders.date, range.to),
+        ),
+      ),
+    adminDb
+      .select({ amount: schema.payments.amount })
+      .from(schema.payments)
+      .where(
+        and(
+          eq(schema.payments.tenantId, tenantId),
+          gte(schema.payments.date, range.from),
+          lte(schema.payments.date, range.to),
+        ),
+      ),
+    aggregateOutstanding(tenantId),
+  ]);
+
+  const orderIds = orders.map((o) => o.id);
+
+  const [items, invoiceTaxRows] = await Promise.all([
+    orderIds.length === 0
+      ? Promise.resolve([] as Array<{
+          orderId: number;
+          productId: number;
+          quantity: number;
+          amount: number;
+        }>)
+      : adminDb
+          .select({
+            orderId: schema.orderItems.orderId,
+            productId: schema.orderItems.productId,
+            quantity: schema.orderItems.quantity,
+            amount: schema.orderItems.amount,
+          })
+          .from(schema.orderItems)
+          .where(inArray(schema.orderItems.orderId, orderIds)),
+    orderIds.length === 0
+      ? Promise.resolve([] as Array<{ cgst: number | null; sgst: number | null }>)
+      : adminDb
+          .select({
+            cgst: schema.invoices.cgstAmount,
+            sgst: schema.invoices.sgstAmount,
+          })
+          .from(schema.invoices)
+          .where(inArray(schema.invoices.orderId, orderIds)),
+  ]);
+
+  const revenueByOrder = new Map<number, number>();
+  let itemsSold = 0;
+  const productAgg = new Map<number, { qty: number; revenue: number }>();
+  for (const it of items) {
+    revenueByOrder.set(
+      it.orderId,
+      (revenueByOrder.get(it.orderId) ?? 0) + it.amount,
+    );
+    itemsSold += it.quantity;
+    const cur = productAgg.get(it.productId) ?? { qty: 0, revenue: 0 };
+    cur.qty += it.quantity;
+    cur.revenue += it.amount;
+    productAgg.set(it.productId, cur);
+  }
+
+  let revenue = 0;
+  const splits: OverviewSummary["splits"] = {
+    kaccha: { revenue: 0, orders: 0 },
+    pakka: { revenue: 0, orders: 0 },
+    catering: { revenue: 0, orders: 0 },
+  };
+  const trendBuckets = new Map<string, number>();
+  const clientAgg = new Map<number, number>();
+  const activeClientSet = new Set<number>();
+
+  for (const o of orders) {
+    const orderRev = revenueByOrder.get(o.id) ?? 0;
+    revenue += orderRev;
+    if (o.billingType === "non-gst") {
+      splits.kaccha.revenue += orderRev;
+      splits.kaccha.orders += 1;
+    } else if (o.billingType === "gst") {
+      splits.pakka.revenue += orderRev;
+      splits.pakka.orders += 1;
+    } else {
+      splits.catering.revenue += orderRev;
+      splits.catering.orders += 1;
+    }
+    const bucket = trendBucketKey(period, o.date);
+    trendBuckets.set(bucket, (trendBuckets.get(bucket) ?? 0) + orderRev);
+    clientAgg.set(o.clientId, (clientAgg.get(o.clientId) ?? 0) + orderRev);
+    activeClientSet.add(o.clientId);
+  }
+
+  let gstCollected = 0;
+  for (const tax of invoiceTaxRows) {
+    gstCollected += (tax.cgst ?? 0) + (tax.sgst ?? 0);
+  }
+
+  const paymentsReceived = paymentsInRange.reduce(
+    (sum, p) => sum + (p.amount ?? 0),
+    0,
+  );
+
+  const productIds = [...productAgg.keys()];
+  const clientIds = [...clientAgg.keys()];
+  const [productNames, clientNames] = await Promise.all([
+    productIds.length === 0
+      ? Promise.resolve([] as { id: number; name: string }[])
+      : adminDb
+          .select({ id: schema.products.id, name: schema.products.name })
+          .from(schema.products)
+          .where(inArray(schema.products.id, productIds)),
+    clientIds.length === 0
+      ? Promise.resolve([] as { id: number; name: string }[])
+      : adminDb
+          .select({ id: schema.clients.id, name: schema.clients.shopName })
+          .from(schema.clients)
+          .where(inArray(schema.clients.id, clientIds)),
+  ]);
+
+  const productNameMap = new Map(productNames.map((p) => [p.id, p.name]));
+  const clientNameMap = new Map(clientNames.map((c) => [c.id, c.name]));
+
+  const topProducts = [...productAgg.entries()]
+    .map(([id, v]) => ({
+      name: productNameMap.get(id) ?? "Unknown",
+      qty: v.qty,
+      revenue: v.revenue,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const topClients = [...clientAgg.entries()]
+    .map(([id, rev]) => ({
+      id,
+      name: clientNameMap.get(id) ?? "Unknown",
+      revenue: rev,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const trend = buildTrendSeries(period, range, trendBuckets);
+
+  return {
+    range,
+    revenue,
+    orderCount: orders.length,
+    avgOrderValue: orders.length > 0 ? revenue / orders.length : 0,
+    itemsSold,
+    gstCollected,
+    paymentsReceived,
+    outstandingTotal: outstandingAgg.total,
+    activeClients: activeClientSet.size,
+    splits,
+    trend,
+    topProducts,
+    topClients,
+    topOutstanding: outstandingAgg.topClients,
+  };
+}

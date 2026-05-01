@@ -86,8 +86,38 @@ export function OrdersTable({ rows }: OrdersTableProps) {
     });
   }
 
+  function deleteAllInView() {
+    if (invoicedIds.length === 0) return;
+    const n = invoicedIds.length;
+    if (
+      !confirm(
+        `Delete ALL ${n} invoice${n > 1 ? "s" : ""} in the current view?\n\nThis covers every invoice for the orders currently filtered. Orders will revert to 'Confirmed' status. This cannot be undone.`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      await deleteInvoices(invoicedIds);
+      setSelected(new Set());
+    });
+  }
+
   return (
     <div className="space-y-3">
+      {invoicedIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+          <span className="text-gray-600 dark:text-gray-300">
+            {invoicedIds.length} invoice{invoicedIds.length > 1 ? "s" : ""} in this view
+          </span>
+          <button
+            type="button"
+            onClick={deleteAllInView}
+            disabled={isPending}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 ring-1 ring-red-200 ring-inset hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-500/30 dark:hover:bg-red-500/10"
+          >
+            {isPending ? "Deleting..." : `Delete all invoices (${invoicedIds.length})`}
+          </button>
+        </div>
+      )}
       {selected.size > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 ring-1 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30">
           <span className="text-sm text-red-700 dark:text-red-300">

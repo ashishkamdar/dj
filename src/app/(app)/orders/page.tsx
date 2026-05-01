@@ -5,12 +5,11 @@ import { getClients } from "@/actions/clients";
 import { adminDb, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { Badge, type BadgeColor } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
-import { formatCurrency, formatDateShort } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { OrdersFilters } from "@/components/orders/orders-filters";
-import { PaidCheckbox } from "@/components/orders/paid-checkbox";
+import { OrdersTable } from "@/components/orders/orders-table";
 
 type SP = {
   from?: string;
@@ -71,18 +70,6 @@ function detectPreset(
     return "thisYear";
   return "custom";
 }
-
-const BILLING_BADGE: Record<string, { color: BadgeColor; label: string }> = {
-  gst: { color: "blue", label: "GST" },
-  "non-gst": { color: "gray", label: "Non-GST" },
-  catering: { color: "purple", label: "Catering" },
-};
-
-const STATUS_BADGE: Record<string, { color: BadgeColor; label: string }> = {
-  draft: { color: "gray", label: "Draft" },
-  confirmed: { color: "yellow", label: "Confirmed" },
-  invoiced: { color: "green", label: "Invoiced" },
-};
 
 function summarizeByMonth(rows: OrderListRow[]) {
   const byMonth = new Map<string, { count: number; total: number }>();
@@ -241,132 +228,7 @@ export default async function OrdersPage({
           description="Try widening the date range or clearing some filters."
         />
       ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden overflow-x-auto rounded-lg ring-1 ring-black/5 md:block dark:ring-white/10">
-            <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-white/10">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 dark:bg-white/5 dark:text-gray-400">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Date</th>
-                  <th className="px-3 py-2 text-left font-medium">Order</th>
-                  <th className="px-3 py-2 text-left font-medium">Client</th>
-                  <th className="px-3 py-2 text-left font-medium">Firm</th>
-                  <th className="px-3 py-2 text-left font-medium">Type</th>
-                  <th className="px-3 py-2 text-right font-medium">Items</th>
-                  <th className="px-3 py-2 text-right font-medium">Total</th>
-                  <th className="px-3 py-2 text-left font-medium">Status</th>
-                  <th className="px-3 py-2 text-center font-medium">Paid</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white dark:divide-white/5 dark:bg-gray-900">
-                {rows.map((r) => {
-                  const billing = BILLING_BADGE[r.billingType];
-                  const status = r.status ? STATUS_BADGE[r.status] : null;
-                  return (
-                    <tr
-                      key={r.id}
-                      className="hover:bg-gray-50 dark:hover:bg-white/5"
-                    >
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                        {formatDateShort(r.date)}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <Link
-                          href={`/orders/${r.id}`}
-                          className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                        >
-                          #{r.id}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2 text-gray-900 dark:text-white">
-                        {r.shopName ?? "—"}
-                        {r.eventName && (
-                          <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
-                            · {r.eventName}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                        {r.firmName ?? "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        {billing && (
-                          <Badge color={billing.color}>{billing.label}</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
-                        {r.itemsCount}
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(r.total)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {status && <Badge color={status.color}>{status.label}</Badge>}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <PaidCheckbox
-                          orderId={r.id}
-                          initialPaid={r.isPaid}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="space-y-2 md:hidden">
-            {rows.map((r) => {
-              const billing = BILLING_BADGE[r.billingType];
-              const status = r.status ? STATUS_BADGE[r.status] : null;
-              return (
-                <Link
-                  key={r.id}
-                  href={`/orders/${r.id}`}
-                  className="block rounded-lg bg-white px-4 py-3 ring-1 ring-black/5 hover:bg-gray-50 dark:bg-gray-800/50 dark:ring-white/10 dark:hover:bg-white/5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {r.shopName ?? "—"}
-                      </p>
-                      {r.eventName && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {r.eventName}
-                        </p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        #{r.id} · {formatDateShort(r.date)} · {r.firmName ?? "—"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(r.total)}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {r.itemsCount} {r.itemsCount === 1 ? "item" : "items"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {billing && <Badge color={billing.color}>{billing.label}</Badge>}
-                      {status && <Badge color={status.color}>{status.label}</Badge>}
-                    </div>
-                    <PaidCheckbox
-                      orderId={r.id}
-                      initialPaid={r.isPaid}
-                      size="sm"
-                      showLabel
-                    />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </>
+        <OrdersTable rows={rows} />
       )}
     </div>
   );

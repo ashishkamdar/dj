@@ -1,7 +1,7 @@
 "use server";
 
 import { adminDb, withTenantDb, schema } from "@/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { generateInvoiceNumber } from "@/lib/invoice-number";
 import { getClientBalance } from "@/lib/ledger";
@@ -96,4 +96,60 @@ export async function getInvoiceByOrder(orderId: number) {
   const rows = await adminDb.select().from(schema.invoices)
     .where(and(eq(schema.invoices.tenantId, tenantId), eq(schema.invoices.orderId, orderId)));
   return rows[0] ?? null;
+}
+
+export async function deleteInvoices(orderIds: number[]): Promise<{ deleted: number }> {
+  if (!orderIds.length) return { deleted: 0 };
+  const { tenantId } = await requireAdmin();
+
+  const affectedDates = await withTenantDb(tenantId, async (db) => {
+    const invoiceRows = await db
+      .select({ id: schema.invoices.id, orderId: schema.invoices.orderId })
+      .from(schema.invoices)
+      .where(
+        and(
+          eq(schema.invoices.tenantId, tenantId),
+          inArray(schema.invoices.orderId, orderIds),
+        ),
+      );
+
+    if (invoiceRows.length === 0) return [] as string[];
+
+    const invoiceIds = invoiceRows.map((r) => r.id);
+    const ordersWithInvoice = invoiceRows.map((r) => r.orderId);
+
+    await db
+      .delete(schema.invoices)
+      .where(inArray(schema.invoices.id, invoiceIds));
+
+    // Revert order status from "invoiced" back to "confirmed"
+    await db
+      .update(schema.orders)
+      .set({ status: "confirmed", updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.orders.tenantId, tenantId),
+          inArray(schema.orders.id, ordersWithInvoice),
+          eq(schema.orders.status, "invoiced"),
+        ),
+      );
+
+    const dateRows = await db
+      .select({ date: schema.orders.date })
+      .from(schema.orders)
+      .where(inArray(schema.orders.id, ordersWithInvoice));
+    return dateRows.map((d) => d.date);
+  });
+
+  revalidatePath("/orders");
+  revalidatePath("/analytics");
+  for (const d of new Set(affectedDates)) {
+    revalidatePath(`/calendar/${d}`);
+  }
+  for (const id of orderIds) {
+    revalidatePath(`/orders/${id}`);
+    revalidatePath(`/orders/${id}/invoice`);
+  }
+
+  return { deleted: orderIds.length };
 }

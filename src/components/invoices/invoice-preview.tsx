@@ -65,6 +65,10 @@ export function InvoicePreview({
   const isCatering = order.billingType === "catering";
   const advancePaid = order.advancePaid ?? 0;
   const balanceDue = isCatering ? grandTotal - advancePaid : grandTotal;
+  const cgstRate =
+    subtotal > 0 ? ((cgstAmount / subtotal) * 100).toFixed(1) : "0";
+  const sgstRate =
+    subtotal > 0 ? ((sgstAmount / subtotal) * 100).toFixed(1) : "0";
 
   return (
     <Card className="mx-auto max-w-2xl">
@@ -213,13 +217,17 @@ export function InvoicePreview({
           {isGst && cgstAmount > 0 && (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">CGST</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  CGST @{cgstRate}%
+                </span>
                 <span className="text-gray-900 dark:text-white">
                   {formatCurrency(cgstAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">SGST</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  SGST @{sgstRate}%
+                </span>
                 <span className="text-gray-900 dark:text-white">
                   {formatCurrency(sgstAmount)}
                 </span>

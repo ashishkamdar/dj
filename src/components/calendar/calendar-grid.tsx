@@ -133,10 +133,10 @@ export function CalendarGrid({
           {/* List view link */}
           <Link
             href={`/orders?from=${year}-${String(month).padStart(2, "0")}-01&to=${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/10"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 dark:bg-white/10 dark:text-gray-200 dark:shadow-none dark:ring-white/5 dark:hover:bg-white/15"
             title="View as list"
           >
-            <TableCellsIcon className="size-4" aria-hidden="true" />
+            <TableCellsIcon className="size-5" aria-hidden="true" />
             <span className="hidden md:inline">List</span>
           </Link>
           {/* Today button (standalone) */}

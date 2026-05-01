@@ -87,7 +87,7 @@ export function InvoicePreview({
             {firm.phone && <span>Ph: {firm.phone}</span>}
             {firm.email && <span>{firm.email}</span>}
           </div>
-          {firm.gstNumber && (
+          {isGst && firm.gstNumber && (
             <p className="mt-1 text-xs font-medium text-gray-600 dark:text-gray-300">
               GSTIN: {firm.gstNumber}
             </p>

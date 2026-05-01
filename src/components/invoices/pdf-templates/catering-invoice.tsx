@@ -239,7 +239,9 @@ export function CateringInvoice({
         <View style={s.header}>
           <Text style={s.firmName}>{firm.name}</Text>
           <Text style={s.firmDetails}>
-            {[firm.address, firm.phone].filter(Boolean).join("  |  ")}
+            {[firm.address, firm.phone, firm.email]
+              .filter(Boolean)
+              .join("  |  ")}
           </Text>
         </View>
 

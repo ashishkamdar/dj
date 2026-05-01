@@ -8,6 +8,7 @@ import {
   UserGroupIcon,
   CubeIcon,
   ChartBarIcon,
+  ClipboardDocumentListIcon,
   Cog6ToothIcon,
   ArrowRightStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
@@ -17,6 +18,7 @@ import { Logo, LogoIcon } from "@/components/ui/logo";
 
 const navItems = [
   { key: "calendar" as const, href: "/calendar", icon: CalendarDaysIcon },
+  { key: "orders" as const, href: "/orders", icon: ClipboardDocumentListIcon },
   { key: "clients" as const, href: "/clients", icon: UserGroupIcon },
   { key: "products" as const, href: "/products", icon: CubeIcon },
   { key: "analytics" as const, href: "/analytics", icon: ChartBarIcon },

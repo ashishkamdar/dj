@@ -1,7 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/20/solid";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  TableCellsIcon,
+} from "@heroicons/react/20/solid";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -125,7 +129,16 @@ export function CalendarGrid({
         <h1 className="text-base font-semibold text-gray-900 dark:text-white">
           {MONTH_NAMES[month - 1]} {year}
         </h1>
-        <div className="flex items-center gap-x-4">
+        <div className="flex items-center gap-x-2 md:gap-x-4">
+          {/* List view link */}
+          <Link
+            href={`/orders?from=${year}-${String(month).padStart(2, "0")}-01&to=${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/10"
+            title="View as list"
+          >
+            <TableCellsIcon className="size-4" aria-hidden="true" />
+            <span className="hidden md:inline">List</span>
+          </Link>
           {/* Today button (standalone) */}
           {!isCurrentMonth && (
             <Link

@@ -19,6 +19,7 @@
   },
   "nav": {
     "calendar": "Calendar",
+    "orders": "Orders",
     "clients": "Clients",
     "products": "Products",
     "more": "More",

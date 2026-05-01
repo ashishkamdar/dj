@@ -1,10 +1,116 @@
 "use server";
 
 import { adminDb, withTenantDb, schema } from "@/db";
-import { and, eq, gte, lte, sql, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+export type OrderListFilters = {
+  from?: string;
+  to?: string;
+  clientId?: number;
+  firmId?: number;
+  billingType?: "gst" | "non-gst" | "catering";
+  status?: "draft" | "confirmed" | "invoiced";
+  q?: string;
+};
+
+export type OrderListRow = {
+  id: number;
+  date: string;
+  shopName: string | null;
+  firmName: string | null;
+  billingType: string;
+  status: string | null;
+  eventName: string | null;
+  itemsCount: number;
+  total: number;
+  isInvoiced: boolean;
+};
+
+export async function listOrders(
+  filters: OrderListFilters,
+): Promise<OrderListRow[]> {
+  const { tenantId } = await requireAuth();
+
+  const where = [eq(schema.orders.tenantId, tenantId)];
+  if (filters.from) where.push(gte(schema.orders.date, filters.from));
+  if (filters.to) where.push(lte(schema.orders.date, filters.to));
+  if (filters.clientId) where.push(eq(schema.orders.clientId, filters.clientId));
+  if (filters.firmId) where.push(eq(schema.orders.firmId, filters.firmId));
+  if (filters.billingType)
+    where.push(eq(schema.orders.billingType, filters.billingType));
+  if (filters.status) where.push(eq(schema.orders.status, filters.status));
+  if (filters.q && filters.q.trim()) {
+    const pattern = `%${filters.q.trim()}%`;
+    where.push(
+      or(
+        ilike(schema.clients.shopName, pattern),
+        ilike(schema.orders.eventName, pattern),
+      )!,
+    );
+  }
+
+  const rows = await adminDb
+    .select({
+      id: schema.orders.id,
+      date: schema.orders.date,
+      billingType: schema.orders.billingType,
+      status: schema.orders.status,
+      eventName: schema.orders.eventName,
+      shopName: schema.clients.shopName,
+      firmName: schema.firms.name,
+      invoiceTotal: schema.invoices.grandTotal,
+    })
+    .from(schema.orders)
+    .leftJoin(schema.clients, eq(schema.orders.clientId, schema.clients.id))
+    .leftJoin(schema.firms, eq(schema.orders.firmId, schema.firms.id))
+    .leftJoin(schema.invoices, eq(schema.invoices.orderId, schema.orders.id))
+    .where(and(...where))
+    .orderBy(desc(schema.orders.date), desc(schema.orders.id))
+    .limit(1000);
+
+  if (rows.length === 0) return [];
+
+  const orderIds = rows.map((r) => r.id);
+  const itemAgg = await adminDb
+    .select({
+      orderId: schema.orderItems.orderId,
+      itemsCount: sql<number>`count(*)`.as("items_count"),
+      subtotal: sql<number>`coalesce(sum(${schema.orderItems.amount}), 0)`.as(
+        "subtotal",
+      ),
+    })
+    .from(schema.orderItems)
+    .where(inArray(schema.orderItems.orderId, orderIds))
+    .groupBy(schema.orderItems.orderId);
+
+  const aggByOrder = new Map<number, { itemsCount: number; subtotal: number }>();
+  for (const a of itemAgg) {
+    aggByOrder.set(a.orderId, {
+      itemsCount: Number(a.itemsCount),
+      subtotal: Number(a.subtotal),
+    });
+  }
+
+  return rows.map((r) => {
+    const agg = aggByOrder.get(r.id) ?? { itemsCount: 0, subtotal: 0 };
+    const isInvoiced = r.invoiceTotal != null;
+    return {
+      id: r.id,
+      date: r.date,
+      shopName: r.shopName,
+      firmName: r.firmName,
+      billingType: r.billingType,
+      status: r.status,
+      eventName: r.eventName,
+      itemsCount: agg.itemsCount,
+      total: isInvoiced ? Number(r.invoiceTotal) : agg.subtotal,
+      isInvoiced,
+    };
+  });
+}
 
 export async function getOrderCountsByMonth(
   year: number,

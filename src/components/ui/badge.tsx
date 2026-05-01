@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type BadgeColor =
+export type BadgeColor =
   | "gray"
   | "red"
   | "yellow"

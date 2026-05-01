@@ -6,8 +6,8 @@ import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Badge, type BadgeColor } from "@/components/ui/badge";
 import { PaidCheckbox } from "./paid-checkbox";
 import { deleteInvoices } from "@/actions/invoices";
+import { deleteOrders, type OrderListRow } from "@/actions/orders";
 import { formatCurrency, formatDateShort, cn } from "@/lib/utils";
-import type { OrderListRow } from "@/actions/orders";
 
 const BILLING_BADGE: Record<string, { color: BadgeColor; label: string }> = {
   gst: { color: "blue", label: "GST" },
@@ -29,18 +29,19 @@ export function OrdersTable({ rows }: OrdersTableProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [isPending, startTransition] = useTransition();
 
+  const allRowIds = useMemo(() => rows.map((r) => r.id), [rows]);
   const invoicedIds = useMemo(
     () => rows.filter((r) => r.isInvoiced).map((r) => r.id),
     [rows],
   );
-  const allInvoicedSelected =
-    invoicedIds.length > 0 && invoicedIds.every((id) => selected.has(id));
+  const allRowsSelected =
+    allRowIds.length > 0 && allRowIds.every((id) => selected.has(id));
 
   function toggleAll() {
-    if (allInvoicedSelected) {
+    if (allRowsSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(invoicedIds));
+      setSelected(new Set(allRowIds));
     }
   }
 
@@ -53,31 +54,31 @@ export function OrdersTable({ rows }: OrdersTableProps) {
     });
   }
 
-  function bulkDelete() {
+  function bulkDeleteOrders() {
     if (selected.size === 0) return;
     const n = selected.size;
     if (
       !confirm(
-        `Delete ${n} invoice${n > 1 ? "s" : ""}?\n\nThe order${n > 1 ? "s" : ""} will revert to "Confirmed" status. This cannot be undone.`,
+        `Delete ${n} order${n > 1 ? "s" : ""}?\n\nThis removes the order${n > 1 ? "s" : ""}, related invoice${n > 1 ? "s" : ""}, and items. Recorded payments stay against the client. This cannot be undone.`,
       )
     )
       return;
     const ids = [...selected];
     startTransition(async () => {
-      await deleteInvoices(ids);
+      await deleteOrders(ids);
       setSelected(new Set());
     });
   }
 
-  function singleDelete(id: number) {
+  function singleDeleteOrder(id: number) {
     if (
       !confirm(
-        "Delete this invoice? The order will revert to 'Confirmed' status. This cannot be undone.",
+        `Delete order #${id}?\n\nThis removes the order, related invoice (if any), and items. Recorded payments stay against the client. This cannot be undone.`,
       )
     )
       return;
     startTransition(async () => {
-      await deleteInvoices([id]);
+      await deleteOrders([id]);
       setSelected((prev) => {
         const next = new Set(prev);
         next.delete(id);
@@ -86,12 +87,12 @@ export function OrdersTable({ rows }: OrdersTableProps) {
     });
   }
 
-  function deleteAllInView() {
+  function deleteAllInvoicesInView() {
     if (invoicedIds.length === 0) return;
     const n = invoicedIds.length;
     if (
       !confirm(
-        `Delete ALL ${n} invoice${n > 1 ? "s" : ""} in the current view?\n\nThis covers every invoice for the orders currently filtered. Orders will revert to 'Confirmed' status. This cannot be undone.`,
+        `Delete ALL ${n} invoice${n > 1 ? "s" : ""} in the current view?\n\nThe orders themselves stay; only the invoice documents are removed and orders revert to 'Confirmed'. This cannot be undone.`,
       )
     )
       return;
@@ -110,7 +111,7 @@ export function OrdersTable({ rows }: OrdersTableProps) {
           </span>
           <button
             type="button"
-            onClick={deleteAllInView}
+            onClick={deleteAllInvoicesInView}
             disabled={isPending}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 ring-1 ring-red-200 ring-inset hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-500/30 dark:hover:bg-red-500/10"
           >
@@ -121,7 +122,7 @@ export function OrdersTable({ rows }: OrdersTableProps) {
       {selected.size > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 ring-1 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30">
           <span className="text-sm text-red-700 dark:text-red-300">
-            {selected.size} invoice{selected.size > 1 ? "s" : ""} selected
+            {selected.size} order{selected.size > 1 ? "s" : ""} selected
           </span>
           <div className="flex gap-2">
             <button
@@ -134,11 +135,11 @@ export function OrdersTable({ rows }: OrdersTableProps) {
             </button>
             <button
               type="button"
-              onClick={bulkDelete}
+              onClick={bulkDeleteOrders}
               disabled={isPending}
               className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50 dark:bg-red-500 dark:hover:bg-red-400"
             >
-              {isPending ? "Deleting..." : `Delete ${selected.size}`}
+              {isPending ? "Deleting..." : `Delete ${selected.size} order${selected.size > 1 ? "s" : ""}`}
             </button>
           </div>
         </div>
@@ -161,9 +162,9 @@ export function OrdersTable({ rows }: OrdersTableProps) {
               <th className="px-3 py-2 text-center font-medium">
                 <input
                   type="checkbox"
-                  aria-label="Select all invoices"
-                  checked={allInvoicedSelected}
-                  disabled={invoicedIds.length === 0 || isPending}
+                  aria-label="Select all orders"
+                  checked={allRowsSelected}
+                  disabled={allRowIds.length === 0 || isPending}
                   onChange={toggleAll}
                   className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/5"
                 />
@@ -224,30 +225,26 @@ export function OrdersTable({ rows }: OrdersTableProps) {
                     <PaidCheckbox orderId={r.id} initialPaid={r.isPaid} />
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {r.isInvoiced && (
-                      <input
-                        type="checkbox"
-                        aria-label={`Select invoice for order ${r.id}`}
-                        checked={isSelected}
-                        disabled={isPending}
-                        onChange={() => toggleOne(r.id)}
-                        className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/5"
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      aria-label={`Select order ${r.id}`}
+                      checked={isSelected}
+                      disabled={isPending}
+                      onChange={() => toggleOne(r.id)}
+                      className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/5"
+                    />
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {r.isInvoiced && (
-                      <button
-                        type="button"
-                        onClick={() => singleDelete(r.id)}
-                        disabled={isPending}
-                        title="Delete invoice"
-                        aria-label={`Delete invoice for order ${r.id}`}
-                        className="inline-flex size-6 items-center justify-center rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
-                      >
-                        <XMarkIcon className="size-4" aria-hidden="true" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => singleDeleteOrder(r.id)}
+                      disabled={isPending}
+                      title="Delete order"
+                      aria-label={`Delete order ${r.id}`}
+                      className="inline-flex size-6 items-center justify-center rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                    >
+                      <XMarkIcon className="size-4" aria-hidden="true" />
+                    </button>
                   </td>
                 </tr>
               );
@@ -309,29 +306,27 @@ export function OrdersTable({ rows }: OrdersTableProps) {
                   size="sm"
                   showLabel
                 />
-                {r.isInvoiced && (
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isPending}
-                        onChange={() => toggleOne(r.id)}
-                        className="size-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/5"
-                      />
-                      Select
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => singleDelete(r.id)}
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
                       disabled={isPending}
-                      title="Delete invoice"
-                      className="inline-flex size-7 items-center justify-center rounded-md text-red-500 hover:bg-red-50 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-500/10"
-                    >
-                      <XMarkIcon className="size-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
+                      onChange={() => toggleOne(r.id)}
+                      className="size-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/5"
+                    />
+                    Select
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => singleDeleteOrder(r.id)}
+                    disabled={isPending}
+                    title="Delete order"
+                    className="inline-flex size-7 items-center justify-center rounded-md text-red-500 hover:bg-red-50 disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-500/10"
+                  >
+                    <XMarkIcon className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
           );

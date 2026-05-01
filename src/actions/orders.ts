@@ -541,7 +541,11 @@ export async function deleteOrder(id: number) {
       throw new Error("Order not found");
     }
 
-    await db.delete(schema.orderItems)
+    await db
+      .delete(schema.invoices)
+      .where(eq(schema.invoices.orderId, id));
+    await db
+      .delete(schema.orderItems)
       .where(eq(schema.orderItems.orderId, id));
     await db.delete(schema.orders).where(eq(schema.orders.id, id));
 
@@ -551,4 +555,63 @@ export async function deleteOrder(id: number) {
   revalidatePath(`/calendar/${orderDate}`);
   revalidatePath("/calendar");
   redirect(`/calendar/${orderDate}`);
+}
+
+export async function deleteOrders(orderIds: number[]): Promise<{ deleted: number }> {
+  if (!orderIds.length) return { deleted: 0 };
+  const { tenantId } = await requireAdmin();
+
+  const dates = await withTenantDb(tenantId, async (db) => {
+    const dateRows = await db
+      .select({ date: schema.orders.date })
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.tenantId, tenantId),
+          inArray(schema.orders.id, orderIds),
+        ),
+      );
+    const result = dateRows.map((d) => d.date);
+
+    // invoices first — no onDelete cascade on the FK, so deleting orders
+    // first would fail for invoiced rows.
+    await db
+      .delete(schema.invoices)
+      .where(
+        and(
+          eq(schema.invoices.tenantId, tenantId),
+          inArray(schema.invoices.orderId, orderIds),
+        ),
+      );
+
+    // orderItems cascade automatically via the FK, but doing it explicitly
+    // matches the existing single-order delete and is safe either way.
+    await db
+      .delete(schema.orderItems)
+      .where(inArray(schema.orderItems.orderId, orderIds));
+
+    // payments.orderId has ON DELETE SET NULL — payments stay tied to the
+    // client (so the ledger is preserved), they just lose the link to this
+    // order.
+
+    await db
+      .delete(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.tenantId, tenantId),
+          inArray(schema.orders.id, orderIds),
+        ),
+      );
+
+    return result;
+  });
+
+  revalidatePath("/orders");
+  revalidatePath("/calendar");
+  revalidatePath("/analytics");
+  for (const d of new Set(dates)) {
+    revalidatePath(`/calendar/${d}`);
+  }
+
+  return { deleted: orderIds.length };
 }

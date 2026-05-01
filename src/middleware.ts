@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname === "/manifest.json" ||
     pathname === "/logo.svg" ||
+    pathname === "/sw.js" ||
     pathname.startsWith("/icon-")
   ) {
     return NextResponse.next();

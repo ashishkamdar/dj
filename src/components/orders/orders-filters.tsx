@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +45,17 @@ export function OrdersFilters({
   const [billingType, setBillingType] = useState(initial.billingType);
   const [status, setStatus] = useState(initial.status);
   const [q, setQ] = useState(initial.q);
+
+  const hasNonPresetFilter =
+    activePreset === "custom" ||
+    Boolean(
+      initial.clientId ||
+        initial.firmId ||
+        initial.billingType ||
+        initial.status ||
+        initial.q,
+    );
+  const [isOpen, setIsOpen] = useState(hasNonPresetFilter);
 
   function buildHref(next: Partial<{
     from: string;
@@ -101,24 +113,42 @@ export function OrdersFilters({
       onSubmit={applyFilters}
       className="space-y-4 rounded-lg bg-gray-50 p-4 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10"
     >
-      {/* Period chips */}
-      <div className="flex flex-wrap gap-2">
-        {presetChips.map((chip) => (
-          <Link
-            key={chip.key}
-            href={chip.href}
+      {/* Header: period chips + toggle */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {presetChips.map((chip) => (
+            <Link
+              key={chip.key}
+              href={chip.href}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition-colors",
+                activePreset === chip.key
+                  ? "bg-indigo-600 text-white ring-indigo-600 dark:bg-indigo-500 dark:ring-indigo-500"
+                  : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-100 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/15",
+              )}
+            >
+              {chip.label}
+            </Link>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen((v) => !v)}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+          aria-expanded={isOpen}
+        >
+          {isOpen ? "Hide filters" : "More filters"}
+          <ChevronDownIcon
             className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition-colors",
-              activePreset === chip.key
-                ? "bg-indigo-600 text-white ring-indigo-600 dark:bg-indigo-500 dark:ring-indigo-500"
-                : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-100 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-white/15",
+              "size-4 transition-transform",
+              isOpen && "rotate-180",
             )}
-          >
-            {chip.label}
-          </Link>
-        ))}
+            aria-hidden="true"
+          />
+        </button>
       </div>
 
+      <div className={cn("space-y-4", !isOpen && "hidden")}>
       {/* Date range */}
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -210,6 +240,7 @@ export function OrdersFilters({
         >
           Export CSV
         </a>
+      </div>
       </div>
     </form>
   );

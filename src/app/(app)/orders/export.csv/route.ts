@@ -19,6 +19,8 @@ const HEADERS = [
   "Event",
   "Items",
   "Total (INR)",
+  "Received (INR)",
+  "Paid",
   "Invoiced",
 ];
 
@@ -53,6 +55,8 @@ export async function GET(req: NextRequest) {
         r.eventName ?? "",
         r.itemsCount,
         r.total.toFixed(2),
+        r.paidAmount.toFixed(2),
+        r.isPaid ? "Yes" : "No",
         r.isInvoiced ? "Yes" : "No",
       ]
         .map(csvEscape)

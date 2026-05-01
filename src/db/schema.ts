@@ -177,6 +177,7 @@ export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   clientId: integer("client_id").notNull().references(() => clients.id),
+  orderId: integer("order_id").references(() => orders.id, { onDelete: "set null" }),
   amount: real("amount").notNull(),
   date: text("date").notNull(),
   mode: text("mode", { enum: ["cash", "upi", "bank"] }).default("cash"),

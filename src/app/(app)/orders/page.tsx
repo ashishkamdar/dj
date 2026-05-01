@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import { formatCurrency, formatDateShort } from "@/lib/utils";
 import { OrdersFilters } from "@/components/orders/orders-filters";
+import { PaidCheckbox } from "@/components/orders/paid-checkbox";
 
 type SP = {
   from?: string;
@@ -148,6 +149,8 @@ export default async function OrdersPage({
   const totalCount = rows.length;
   const totalAmount = rows.reduce((s, r) => s + r.total, 0);
   const invoicedCount = rows.filter((r) => r.isInvoiced).length;
+  const paidCount = rows.filter((r) => r.isPaid).length;
+  const receivedAmount = rows.reduce((s, r) => s + r.paidAmount, 0);
   const monthly = summarizeByMonth(rows);
 
   const activePreset = detectPreset(from, to, presets);
@@ -190,9 +193,14 @@ export default async function OrdersPage({
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <SummaryCard label="Orders" value={String(totalCount)} />
         <SummaryCard label="Total" value={formatCurrency(totalAmount)} />
+        <SummaryCard label="Received" value={formatCurrency(receivedAmount)} />
+        <SummaryCard
+          label="Paid"
+          value={`${paidCount} / ${totalCount}`}
+        />
         <SummaryCard
           label="Invoiced"
           value={`${invoicedCount} / ${totalCount}`}
@@ -247,6 +255,7 @@ export default async function OrdersPage({
                   <th className="px-3 py-2 text-right font-medium">Items</th>
                   <th className="px-3 py-2 text-right font-medium">Total</th>
                   <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 py-2 text-center font-medium">Paid</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white dark:divide-white/5 dark:bg-gray-900">
@@ -294,6 +303,12 @@ export default async function OrdersPage({
                       <td className="px-3 py-2">
                         {status && <Badge color={status.color}>{status.label}</Badge>}
                       </td>
+                      <td className="px-3 py-2 text-center">
+                        <PaidCheckbox
+                          orderId={r.id}
+                          initialPaid={r.isPaid}
+                        />
+                      </td>
                     </tr>
                   );
                 })}
@@ -335,9 +350,17 @@ export default async function OrdersPage({
                       </p>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {billing && <Badge color={billing.color}>{billing.label}</Badge>}
-                    {status && <Badge color={status.color}>{status.label}</Badge>}
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {billing && <Badge color={billing.color}>{billing.label}</Badge>}
+                      {status && <Badge color={status.color}>{status.label}</Badge>}
+                    </div>
+                    <PaidCheckbox
+                      orderId={r.id}
+                      initialPaid={r.isPaid}
+                      size="sm"
+                      showLabel
+                    />
                   </div>
                 </Link>
               );

@@ -19,6 +19,7 @@ export type OrderListFilters = {
 export type OrderListRow = {
   id: number;
   date: string;
+  clientId: number;
   shopName: string | null;
   firmName: string | null;
   billingType: string;
@@ -27,6 +28,8 @@ export type OrderListRow = {
   itemsCount: number;
   total: number;
   isInvoiced: boolean;
+  isPaid: boolean;
+  paidAmount: number;
 };
 
 export async function listOrders(
@@ -56,6 +59,7 @@ export async function listOrders(
     .select({
       id: schema.orders.id,
       date: schema.orders.date,
+      clientId: schema.orders.clientId,
       billingType: schema.orders.billingType,
       status: schema.orders.status,
       eventName: schema.orders.eventName,
@@ -74,17 +78,34 @@ export async function listOrders(
   if (rows.length === 0) return [];
 
   const orderIds = rows.map((r) => r.id);
-  const itemAgg = await adminDb
-    .select({
-      orderId: schema.orderItems.orderId,
-      itemsCount: sql<number>`count(*)`.as("items_count"),
-      subtotal: sql<number>`coalesce(sum(${schema.orderItems.amount}), 0)`.as(
-        "subtotal",
-      ),
-    })
-    .from(schema.orderItems)
-    .where(inArray(schema.orderItems.orderId, orderIds))
-    .groupBy(schema.orderItems.orderId);
+  const [itemAgg, paymentAgg] = await Promise.all([
+    adminDb
+      .select({
+        orderId: schema.orderItems.orderId,
+        itemsCount: sql<number>`count(*)`.as("items_count"),
+        subtotal: sql<number>`coalesce(sum(${schema.orderItems.amount}), 0)`.as(
+          "subtotal",
+        ),
+      })
+      .from(schema.orderItems)
+      .where(inArray(schema.orderItems.orderId, orderIds))
+      .groupBy(schema.orderItems.orderId),
+    adminDb
+      .select({
+        orderId: schema.payments.orderId,
+        paid: sql<number>`coalesce(sum(${schema.payments.amount}), 0)`.as(
+          "paid",
+        ),
+      })
+      .from(schema.payments)
+      .where(inArray(schema.payments.orderId, orderIds))
+      .groupBy(schema.payments.orderId),
+  ]);
+
+  const paidByOrder = new Map<number, number>();
+  for (const p of paymentAgg) {
+    if (p.orderId != null) paidByOrder.set(p.orderId, Number(p.paid));
+  }
 
   const aggByOrder = new Map<number, { itemsCount: number; subtotal: number }>();
   for (const a of itemAgg) {
@@ -97,19 +118,117 @@ export async function listOrders(
   return rows.map((r) => {
     const agg = aggByOrder.get(r.id) ?? { itemsCount: 0, subtotal: 0 };
     const isInvoiced = r.invoiceTotal != null;
+    const total = isInvoiced ? Number(r.invoiceTotal) : agg.subtotal;
+    const paidAmount = paidByOrder.get(r.id) ?? 0;
+    // Treat as paid if recorded payments cover at least the order total
+    // (rounding tolerance of 1 paisa).
+    const isPaid = total > 0 && paidAmount + 0.01 >= total;
     return {
       id: r.id,
       date: r.date,
+      clientId: r.clientId,
       shopName: r.shopName,
       firmName: r.firmName,
       billingType: r.billingType,
       status: r.status,
       eventName: r.eventName,
       itemsCount: agg.itemsCount,
-      total: isInvoiced ? Number(r.invoiceTotal) : agg.subtotal,
+      total,
       isInvoiced,
+      isPaid,
+      paidAmount,
     };
   });
+}
+
+export async function markOrderPaid(orderId: number, paid: boolean) {
+  const user = await requireAdmin();
+  const { tenantId } = user;
+
+  const orderRows = await adminDb
+    .select({
+      id: schema.orders.id,
+      clientId: schema.orders.clientId,
+      date: schema.orders.date,
+    })
+    .from(schema.orders)
+    .where(and(eq(schema.orders.tenantId, tenantId), eq(schema.orders.id, orderId)));
+  const order = orderRows[0];
+  if (!order) throw new Error("Order not found");
+
+  if (paid) {
+    // Compute order total: prefer invoice grand total, else item subtotal.
+    const invoiceRows = await adminDb
+      .select({ grandTotal: schema.invoices.grandTotal })
+      .from(schema.invoices)
+      .where(
+        and(
+          eq(schema.invoices.tenantId, tenantId),
+          eq(schema.invoices.orderId, orderId),
+        ),
+      );
+    let total: number;
+    if (invoiceRows[0]) {
+      total = invoiceRows[0].grandTotal;
+    } else {
+      const itemRows = await adminDb
+        .select({ amount: schema.orderItems.amount })
+        .from(schema.orderItems)
+        .where(eq(schema.orderItems.orderId, orderId));
+      total = itemRows.reduce((s, i) => s + i.amount, 0);
+    }
+
+    if (total <= 0) throw new Error("Order has no amount to mark as paid");
+
+    // Already-paid amount on this order
+    const existingRows = await adminDb
+      .select({ amount: schema.payments.amount })
+      .from(schema.payments)
+      .where(
+        and(
+          eq(schema.payments.tenantId, tenantId),
+          eq(schema.payments.orderId, orderId),
+        ),
+      );
+    const alreadyPaid = existingRows.reduce((s, p) => s + p.amount, 0);
+    const remaining = total - alreadyPaid;
+    if (remaining <= 0.01) {
+      // Already covered — nothing to insert.
+      revalidatePath("/orders");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    await withTenantDb(tenantId, async (db) => {
+      await db.insert(schema.payments).values({
+        tenantId,
+        clientId: order.clientId,
+        orderId,
+        amount: remaining,
+        date: today,
+        mode: "cash",
+        notes: `Marked paid from orders list`,
+        receivedBy: user.id,
+      });
+    });
+  } else {
+    // Remove all payments tied to this order.
+    await withTenantDb(tenantId, async (db) => {
+      await db
+        .delete(schema.payments)
+        .where(
+          and(
+            eq(schema.payments.tenantId, tenantId),
+            eq(schema.payments.orderId, orderId),
+          ),
+        );
+    });
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/analytics");
+  revalidatePath(`/clients/${order.clientId}`);
+  revalidatePath(`/calendar/${order.date}`);
 }
 
 export async function getOrderCountsByMonth(

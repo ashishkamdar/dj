@@ -76,6 +76,7 @@ export const firms = pgTable("firms", {
   bankAccount: text("bank_account"),
   bankIfsc: text("bank_ifsc"),
   isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

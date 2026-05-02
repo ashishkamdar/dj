@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
-import { getFirms } from "@/actions/firms";
+import { getFirms, setDefaultFirm } from "@/actions/firms";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,25 +39,50 @@ export default async function FirmsPage() {
           {/* Mobile view */}
           <div className="space-y-3 sm:hidden">
             {firms.map((firm) => (
-              <Link
+              <div
                 key={firm.id}
-                href={`/settings/firms/${firm.id}/edit`}
-                className="block rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10"
+                className="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-black/5 dark:bg-gray-800/50 dark:ring-white/10"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {firm.name}
-                  </span>
-                  <Badge color={firm.isGstRegistered ? "green" : "gray"}>
-                    {firm.isGstRegistered ? "GST" : "Non-GST"}
-                  </Badge>
-                </div>
-                {firm.phone && (
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {firm.phone}
-                  </p>
+                <Link
+                  href={`/settings/firms/${firm.id}/edit`}
+                  className="block"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {firm.name}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {firm.isDefault && (
+                        <Badge color="indigo">Default</Badge>
+                      )}
+                      <Badge color={firm.isGstRegistered ? "green" : "gray"}>
+                        {firm.isGstRegistered ? "GST" : "Non-GST"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {firm.phone && (
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {firm.phone}
+                    </p>
+                  )}
+                </Link>
+                {!firm.isDefault && (
+                  <form
+                    action={async () => {
+                      "use server";
+                      await setDefaultFirm(firm.id);
+                    }}
+                    className="mt-3 border-t border-gray-100 pt-2 dark:border-white/10"
+                  >
+                    <button
+                      type="submit"
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      Set as default
+                    </button>
+                  </form>
                 )}
-              </Link>
+              </div>
             ))}
           </div>
 
@@ -88,7 +113,12 @@ export default async function FirmsPage() {
                   {firms.map((firm) => (
                     <tr key={firm.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 dark:text-white">
-                        {firm.name}
+                        <span className="inline-flex items-center gap-2">
+                          {firm.name}
+                          {firm.isDefault && (
+                            <Badge color="indigo">Default</Badge>
+                          )}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                         {firm.phone || "—"}
@@ -102,12 +132,29 @@ export default async function FirmsPage() {
                         {firm.gstNumber || "—"}
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <Link
-                          href={`/settings/firms/${firm.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        >
-                          Edit
-                        </Link>
+                        <div className="flex justify-end gap-3">
+                          {!firm.isDefault && (
+                            <form
+                              action={async () => {
+                                "use server";
+                                await setDefaultFirm(firm.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                              >
+                                Set as default
+                              </button>
+                            </form>
+                          )}
+                          <Link
+                            href={`/settings/firms/${firm.id}/edit`}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                          >
+                            Edit
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

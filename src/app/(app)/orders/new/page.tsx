@@ -19,9 +19,16 @@ export default async function NewOrderPage({
 
   // Load active firms
   const firms = await adminDb
-    .select({ id: schema.firms.id, name: schema.firms.name, isGstRegistered: schema.firms.isGstRegistered })
+    .select({
+      id: schema.firms.id,
+      name: schema.firms.name,
+      isGstRegistered: schema.firms.isGstRegistered,
+      isDefault: schema.firms.isDefault,
+    })
     .from(schema.firms)
     .where(and(eq(schema.firms.tenantId, tenantId), eq(schema.firms.isActive, true)));
+
+  const defaultFirmId = firms.find((f) => f.isDefault)?.id ?? null;
 
   // Load active clients, recurring first
   const clients = await adminDb
@@ -74,6 +81,7 @@ export default async function NewOrderPage({
         firms={firms}
         clients={clients}
         products={products}
+        defaultFirmId={defaultFirmId}
       />
     </div>
   );

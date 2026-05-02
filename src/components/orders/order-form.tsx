@@ -61,6 +61,7 @@ interface OrderFormProps {
   clients: Client[];
   products: Product[];
   order?: ExistingOrder;
+  defaultFirmId?: number | null;
 }
 
 const UNIT_OPTIONS = [
@@ -82,15 +83,21 @@ export function OrderForm({
   clients,
   products,
   order,
+  defaultFirmId,
 }: OrderFormProps) {
   const isEditing = !!order;
 
   const [clientId, setClientId] = useState<string>(
     order ? String(order.clientId) : "",
   );
-  const [firmId, setFirmId] = useState<string>(
-    order ? String(order.firmId) : firms.length === 1 ? String(firms[0].id) : "",
-  );
+  const initialFirmId = order
+    ? String(order.firmId)
+    : firms.length === 1
+      ? String(firms[0].id)
+      : defaultFirmId
+        ? String(defaultFirmId)
+        : "";
+  const [firmId, setFirmId] = useState<string>(initialFirmId);
   const [notes, setNotes] = useState<string>(order?.notes ?? "");
 
   const [lineItems, setLineItems] = useState<LineItem[]>(

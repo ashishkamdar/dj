@@ -1,10 +1,35 @@
 "use server";
 
 import { adminDb, withTenantDb, schema } from "@/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+export async function setDefaultFirm(id: number) {
+  const { tenantId } = await requireAdmin();
+
+  await withTenantDb(tenantId, async (db) => {
+    // Clear flag on every other firm of this tenant first.
+    await db
+      .update(schema.firms)
+      .set({ isDefault: false })
+      .where(
+        and(eq(schema.firms.tenantId, tenantId), ne(schema.firms.id, id)),
+      );
+    // Then mark this one.
+    await db
+      .update(schema.firms)
+      .set({ isDefault: true })
+      .where(
+        and(eq(schema.firms.tenantId, tenantId), eq(schema.firms.id, id)),
+      );
+  });
+
+  revalidatePath("/settings/firms");
+  revalidatePath("/orders/new");
+  revalidatePath("/calendar");
+}
 
 export async function getFirms() {
   const { tenantId } = await requireAdmin();

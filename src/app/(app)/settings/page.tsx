@@ -8,7 +8,38 @@ import {
   UsersIcon,
   CloudArrowDownIcon,
   ArrowRightStartOnRectangleIcon,
+  ClipboardDocumentListIcon,
+  ArrowPathIcon,
+  BanknotesIcon,
+  ChartBarIcon,
 } from "@heroicons/react/24/outline";
+
+const sectionLinks = [
+  {
+    name: "Orders",
+    description: "Search, filter, and manage all orders",
+    href: "/orders",
+    icon: ClipboardDocumentListIcon,
+  },
+  {
+    name: "Recurring",
+    description: "Schedules that auto-create draft orders",
+    href: "/recurring",
+    icon: ArrowPathIcon,
+  },
+  {
+    name: "Payments",
+    description: "Record payments and review balances per client",
+    href: "/payments",
+    icon: BanknotesIcon,
+  },
+  {
+    name: "Analytics",
+    description: "Revenue, items in demand, and trends",
+    href: "/analytics",
+    icon: ChartBarIcon,
+  },
+];
 
 const settingsLinks = [
   {
@@ -37,30 +68,62 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <SectionHeading
-        title="Settings"
-        description="Manage your application settings"
+        title="More"
+        description="Other sections and application settings"
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {settingsLinks.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-black/5 hover:bg-gray-50 dark:bg-gray-800/50 dark:ring-white/10 dark:hover:bg-white/5"
-          >
-            <div className="flex items-center gap-4">
-              <item.icon className="size-8 text-gray-400 dark:text-gray-500" />
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {item.name}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {item.description}
-                </p>
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Sections
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {sectionLinks.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-black/5 hover:bg-gray-50 dark:bg-gray-800/50 dark:ring-white/10 dark:hover:bg-white/5"
+            >
+              <div className="flex items-center gap-4">
+                <item.icon className="size-8 text-indigo-500 dark:text-indigo-400" />
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {item.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {item.description}
+                  </p>
+                </div>
               </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Settings
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {settingsLinks.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="rounded-lg bg-white px-4 py-4 shadow-sm ring-1 ring-black/5 hover:bg-gray-50 dark:bg-gray-800/50 dark:ring-white/10 dark:hover:bg-white/5"
+            >
+              <div className="flex items-center gap-4">
+                <item.icon className="size-8 text-gray-400 dark:text-gray-500" />
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {item.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Language Switcher */}

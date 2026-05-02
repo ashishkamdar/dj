@@ -1,7 +1,7 @@
 "use server";
 
 import { adminDb, withTenantDb, schema } from "@/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -90,6 +90,26 @@ export async function updateProduct(id: number, formData: FormData) {
 
   revalidatePath("/products");
   redirect("/products");
+}
+
+export async function deleteProducts(ids: number[]): Promise<{ deleted: number }> {
+  if (!ids.length) return { deleted: 0 };
+  const { tenantId } = await requireAdmin();
+
+  await withTenantDb(tenantId, async (db) => {
+    await db
+      .update(schema.products)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(schema.products.tenantId, tenantId),
+          inArray(schema.products.id, ids),
+        ),
+      );
+  });
+
+  revalidatePath("/products");
+  return { deleted: ids.length };
 }
 
 export async function toggleProductActive(id: number) {

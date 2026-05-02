@@ -108,3 +108,109 @@ pm2 start npm --name 'dj-foods' -- start -- -p 3456
 - [ ] Consider adding more clients as recurring daily orders start
 - [ ] UI polish based on Deepak's feedback after real usage
 - [ ] Backup cron job on server (daily auto-backup)
+
+---
+
+## Phase 5: Post-launch Iterations (2026-04-26 onwards)
+
+Built in response to live feedback from Deepak using the app. All shipped to production.
+
+### Multi-tenancy migration
+
+- [x] Schema migrated from SQLite to Postgres with `tenant_id` on every tenant-scoped table
+- [x] RLS policies via `app.tenant_id` setting (`src/db/rls.ts`); `withTenantDb()` wraps writes
+- [x] Super-admin onboarding flow at `/super-admin`
+- [x] Important: `npx drizzle-kit push` drops RLS policies — always re-run `npx tsx src/db/rls.ts` after a schema push (with `.env` sourced)
+
+### Invoice / order improvements
+
+- [x] **Invoice PDF letterhead** — show address/phone/email on every template; GSTIN only on GST invoice; CGST/SGST display the actual percentage from firm config
+- [x] **Auto-derive billing type** — removed the manual Billing Type picker; firm's `is_gst_registered` now drives it
+- [x] **Invoice delete** — per-row red ✕ on `/orders` (single delete) plus multi-select with select-all checkbox and a "Delete all invoices in view" bulk action
+- [x] **Status simplification** — user policy: Confirmed = Invoiced. One-time SQL update applied; `deleteInvoices` reverts to `confirmed` (treated as same state)
+
+### `/orders` index page
+
+- [x] Sortable, filterable list view with: period chips (This Month / This Year / All Time + custom), client, firm, billing type, status, search
+- [x] Click-to-sort on every column with chevron indicator; default sort = Order # desc
+- [x] Summary tiles (Orders, Total, Received, Paid, Invoiced)
+- [x] Monthly breakdown panel when range spans 2+ months
+- [x] Per-row Paid checkbox creates/deletes a payment via `payments.order_id` FK
+- [x] Per-row red ✕ deletes the entire order (cascade: invoice + items; payments unlink via SET NULL)
+- [x] CSV export at `/orders/export.csv`
+- [x] Linked from calendar header (List icon) and from More page on mobile
+
+### Analytics dashboard
+
+- [x] New `Overview` tab on `/analytics` (now default) — KPI cards for Revenue, Orders, AOV, Items Sold, GST Collected, Payments Received, Outstanding (live), Active Clients
+- [x] Kaccha (non-GST) / Pakka (GST) / Catering split
+- [x] Daily / Monthly revenue trend bar chart
+- [x] Top 5 Products / Clients / Outstanding clients
+- [x] Period toggle: Week / Month / Year
+
+### Recurring orders (`/recurring`)
+
+- [x] Schema: `recurring_templates` (clientId, firmId, daysOfWeek 7-bit mask Sun=bit0, billingType, isActive) + `recurring_template_items`
+- [x] `tenants.last_recurring_gen_at` (date) for idempotency; `orders.generated_from_template_id` flags auto-generated drafts
+- [x] `ensureRecurringGenerated()` runs from the layout's banner component on every authenticated page load — catches up multiple missed days
+- [x] Two tabs: Pending (today's drafts to confirm) and Schedules (templates)
+- [x] Single-line amber banner above page content shows pending count, links to Pending tab; disappears at zero
+- [x] Form has Daily / Weekdays / Weekends preset buttons in addition to per-day chips
+
+### Payments (`/payments`)
+
+- [x] One `<details>` accordion per active client (default closed)
+- [x] Closed: shop name + outstanding/advance balance with colour coding
+- [x] Open: inline Record-payment form (defaults to outstanding amount, today, cash mode) + table of orders in the current FY sorted by Order # desc with the existing Paid checkbox per row
+- [x] Top-of-page summary: total Outstanding (red) and total Advance held (green) across clients
+- [x] Sorted Outstanding → Advance → Settled, then by absolute balance desc
+- [x] `recordClientPayment(clientId, formData)` action — non-redirecting, revalidates `/payments`, `/orders`, `/analytics`, and `/clients/[id]`
+
+### `/orders/new` ergonomics
+
+- [x] Quick-pick chips for recurring clients above the Client dropdown
+- [x] Quick-add product chips above line items — tap once to add, tap again to +1 qty
+- [x] Numeric keypad on Qty / Rate fields via `inputMode="decimal"` and `pattern="[0-9.]*"`
+- [x] Tenant default firm pre-fills the Firm dropdown (precedence: client default > tenant default > empty)
+
+### Firms
+
+- [x] `firms.is_default` flag (only one per tenant). "Set as default" button on `/settings/firms` enforces single-default invariant in the action
+
+### Products
+
+- [x] Per-row red ✕ + select-all bulk delete on `/products` — soft delete via `is_active=false` so historical orders keep working
+
+### PWA auto-update
+
+- [x] Service worker served by `/sw.js` route handler with a `BUILD_VERSION` constant captured at server boot — every `pm2 restart` changes it, browsers reinstall, `controllerchange` triggers a one-time `location.reload()`
+- [x] `RegisterSW` client component re-checks for updates on `visibilitychange` so resumed PWAs pick up new versions
+- [x] No more reinstall-from-scratch needed on Deepak's phone after a deploy
+
+### UI / layout durability
+
+- [x] App-shell `overflow-x-clip` on the `(app)` layout's `<main>` and on `html`/`body` in `globals.css` — durable guard against horizontal page scroll
+- [x] Form chip rows use `min-w-0` + `max-w-full` + truncate so long client/product names ellipsize inside pills
+
+### Mobile nav hub
+
+- [x] `/settings` page now doubles as the mobile More tab hub. New top-level pages (Orders, Recurring, Payments, Analytics) appear in a "Sections" grid above the existing Settings tiles so mobile users (whose bottom nav is Calendar / Clients / Products / More) can reach them.
+
+---
+
+## Operational Cheat-sheet
+
+**Standard deploy** (no schema change):
+```bash
+ssh nuremberg 'cd /var/www/dj && git pull --ff-only && npm run build && pm2 restart dj-foods --update-env'
+```
+
+**Schema-change deploy** — drizzle-kit push drops RLS policies, must restore them:
+```bash
+ssh nuremberg "cd /var/www/dj && git pull --ff-only && \
+  npx drizzle-kit push --verbose && \
+  set -a && source .env && set +a && npx tsx src/db/rls.ts && \
+  npm run build && pm2 restart dj-foods --update-env"
+```
+
+**App location on server:** `/var/www/dj` · PM2 process `dj-foods` (id 10) · port 3456 · nginx → dj.areakpi.in

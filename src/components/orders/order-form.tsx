@@ -390,6 +390,8 @@ export function OrderForm({
               <div className="mt-2 flex gap-2">
                 <input
                   type="number"
+                  inputMode="decimal"
+                  pattern="[0-9.]*"
                   min="0.01"
                   step="0.01"
                   className="block w-full min-w-0 flex-1 rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
@@ -420,6 +422,8 @@ export function OrderForm({
               <div className="mt-2">
                 <input
                   type="number"
+                  inputMode="decimal"
+                  pattern="[0-9.]*"
                   min="0"
                   step="0.01"
                   className="block w-full max-w-[10rem] rounded-md bg-white px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"

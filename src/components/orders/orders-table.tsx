@@ -2,12 +2,66 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { XMarkIcon } from "@heroicons/react/20/solid";
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
+  XMarkIcon,
+} from "@heroicons/react/20/solid";
 import { Badge, type BadgeColor } from "@/components/ui/badge";
 import { PaidCheckbox } from "./paid-checkbox";
 import { deleteInvoices } from "@/actions/invoices";
 import { deleteOrders, type OrderListRow } from "@/actions/orders";
 import { formatCurrency, formatDateShort, cn } from "@/lib/utils";
+
+type SortKey =
+  | "date"
+  | "id"
+  | "client"
+  | "firm"
+  | "billingType"
+  | "itemsCount"
+  | "total"
+  | "status"
+  | "paid";
+type SortDir = "asc" | "desc";
+
+const STATUS_RANK: Record<string, number> = {
+  draft: 0,
+  confirmed: 1,
+  invoiced: 2,
+};
+
+const BILLING_RANK: Record<string, number> = {
+  "non-gst": 0,
+  gst: 1,
+  catering: 2,
+};
+
+function compare(a: OrderListRow, b: OrderListRow, key: SortKey): number {
+  switch (key) {
+    case "date":
+      return a.date.localeCompare(b.date);
+    case "id":
+      return a.id - b.id;
+    case "client":
+      return (a.shopName ?? "").localeCompare(b.shopName ?? "");
+    case "firm":
+      return (a.firmName ?? "").localeCompare(b.firmName ?? "");
+    case "billingType":
+      return (
+        (BILLING_RANK[a.billingType] ?? 99) -
+        (BILLING_RANK[b.billingType] ?? 99)
+      );
+    case "itemsCount":
+      return a.itemsCount - b.itemsCount;
+    case "total":
+      return a.total - b.total;
+    case "status":
+      return (STATUS_RANK[a.status ?? ""] ?? -1) - (STATUS_RANK[b.status ?? ""] ?? -1);
+    case "paid":
+      return Number(a.isPaid) - Number(b.isPaid);
+  }
+}
 
 const BILLING_BADGE: Record<string, { color: BadgeColor; label: string }> = {
   gst: { color: "blue", label: "GST" },
@@ -27,7 +81,28 @@ interface OrdersTableProps {
 
 export function OrdersTable({ rows }: OrdersTableProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isPending, startTransition] = useTransition();
+
+  const sortedRows = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const c = compare(a, b, sortKey);
+      if (c !== 0) return c * dir;
+      // Stable secondary sort by id desc so equal-key rows have a deterministic order.
+      return b.id - a.id;
+    });
+  }, [rows, sortKey, sortDir]);
+
+  function onSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "date" || key === "total" || key === "id" ? "desc" : "asc");
+    }
+  }
 
   const allRowIds = useMemo(() => rows.map((r) => r.id), [rows]);
   const invoicedIds = useMemo(
@@ -150,15 +225,15 @@ export function OrdersTable({ rows }: OrdersTableProps) {
         <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-white/10">
           <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 dark:bg-white/5 dark:text-gray-400">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">Date</th>
-              <th className="px-3 py-2 text-left font-medium">Order</th>
-              <th className="px-3 py-2 text-left font-medium">Client</th>
-              <th className="px-3 py-2 text-left font-medium">Firm</th>
-              <th className="px-3 py-2 text-left font-medium">Type</th>
-              <th className="px-3 py-2 text-right font-medium">Items</th>
-              <th className="px-3 py-2 text-right font-medium">Total</th>
-              <th className="px-3 py-2 text-left font-medium">Status</th>
-              <th className="px-3 py-2 text-center font-medium">Paid</th>
+              <SortHeader label="Date" sortKey="date" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Order" sortKey="id" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Client" sortKey="client" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Firm" sortKey="firm" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Type" sortKey="billingType" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Items" sortKey="itemsCount" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="Total" sortKey="total" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
+              <SortHeader label="Status" sortKey="status" current={sortKey} dir={sortDir} onSort={onSort} />
+              <SortHeader label="Paid" sortKey="paid" current={sortKey} dir={sortDir} onSort={onSort} align="center" />
               <th className="px-3 py-2 text-center font-medium">
                 <input
                   type="checkbox"
@@ -173,7 +248,7 @@ export function OrdersTable({ rows }: OrdersTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white dark:divide-white/5 dark:bg-gray-900">
-            {rows.map((r) => {
+            {sortedRows.map((r) => {
               const billing = BILLING_BADGE[r.billingType];
               const status = r.status ? STATUS_BADGE[r.status] : null;
               const isSelected = selected.has(r.id);
@@ -255,7 +330,7 @@ export function OrdersTable({ rows }: OrdersTableProps) {
 
       {/* Mobile cards */}
       <div className="space-y-2 md:hidden">
-        {rows.map((r) => {
+        {sortedRows.map((r) => {
           const billing = BILLING_BADGE[r.billingType];
           const status = r.status ? STATUS_BADGE[r.status] : null;
           const isSelected = selected.has(r.id);
@@ -333,5 +408,61 @@ export function OrdersTable({ rows }: OrdersTableProps) {
         })}
       </div>
     </div>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  current,
+  dir,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  current: SortKey;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+  align?: "left" | "right" | "center";
+}) {
+  const active = current === sortKey;
+  const justify =
+    align === "right"
+      ? "justify-end"
+      : align === "center"
+        ? "justify-center"
+        : "justify-start";
+  const Icon = active && dir === "asc" ? ChevronUpIcon : ChevronDownIcon;
+  return (
+    <th
+      className={cn(
+        "px-3 py-2 font-medium",
+        align === "right"
+          ? "text-right"
+          : align === "center"
+            ? "text-center"
+            : "text-left",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex w-full items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200",
+          justify,
+          active && "text-gray-900 dark:text-white",
+        )}
+      >
+        {label}
+        <Icon
+          className={cn(
+            "size-3",
+            active ? "opacity-100" : "opacity-30",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    </th>
   );
 }

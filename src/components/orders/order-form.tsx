@@ -247,8 +247,43 @@ export function OrderForm({
   const validItems = lineItems.filter((i) => i.productId > 0);
   const canSubmit = clientId && firmId && validItems.length > 0 && !submitting;
 
+  const recurringClients = sortedClients.filter((c) => c.isRecurring);
+
   return (
     <div className="space-y-6 overflow-hidden">
+      {/* Quick-pick recurring clients */}
+      {recurringClients.length > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-200">
+              Quick pick
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Recurring clients
+            </p>
+          </div>
+          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+            {recurringClients.map((c) => {
+              const selected = clientId === String(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleClientChange(String(c.id))}
+                  className={
+                    selected
+                      ? "cursor-pointer rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
+                      : "cursor-pointer rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
+                  }
+                >
+                  {c.shopName}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Client */}
       <Select
         label="Client"

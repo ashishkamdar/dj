@@ -23,3 +23,16 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/*
+  Hard guarantee: no page can ever produce a viewport-level horizontal
+  scrollbar. overflow-x: clip is preferred over hidden — it does not
+  create a new scrolling context, so position:sticky and internal
+  scrollers (e.g. tables wrapped in their own overflow-x-auto) continue
+  to work normally. DO NOT REMOVE without an explicit user request.
+*/
+html,
+body {
+  overflow-x: clip;
+  max-width: 100vw;
+}

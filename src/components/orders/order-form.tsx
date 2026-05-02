@@ -145,6 +145,37 @@ export function OrderForm({
     }
   }
 
+  function quickAddProduct(productId: number) {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
+    setLineItems((prev) => {
+      const existingIdx = prev.findIndex((i) => i.productId === productId);
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        const cur = { ...next[existingIdx] };
+        cur.quantity = (cur.quantity || 0) + 1;
+        cur.amount = cur.quantity * cur.rate;
+        next[existingIdx] = cur;
+        return next;
+      }
+      const newItem: LineItem = {
+        productId,
+        quantity: 1,
+        unit: product.defaultUnit ?? "kg",
+        rate: product.defaultRate ?? 0,
+        amount: product.defaultRate ?? 0,
+      };
+      const blankIdx = prev.findIndex((i) => i.productId === 0);
+      if (blankIdx >= 0) {
+        const next = [...prev];
+        next[blankIdx] = newItem;
+        return next;
+      }
+      return [...prev, newItem];
+    });
+  }
+
   function updateLineItem(index: number, updates: Partial<LineItem>) {
     setLineItems((prev) => {
       const newItems = [...prev];
@@ -237,6 +268,44 @@ export function OrderForm({
         value={firmId}
         onChange={(e) => setFirmId(e.target.value)}
       />
+
+      {/* Quick add product chips */}
+      {products.length > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-200">
+              Quick add
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Tap once to add · tap again to +1 qty
+            </p>
+          </div>
+          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+            {products.map((p) => {
+              const inOrder = lineItems.find((i) => i.productId === p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => quickAddProduct(p.id)}
+                  className={
+                    inOrder
+                      ? "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
+                      : "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
+                  }
+                >
+                  {p.name}
+                  {inOrder && inOrder.quantity > 0 && (
+                    <span className="text-[10px] tabular-nums opacity-90">
+                      ×{inOrder.quantity}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Line Items */}
       <div>

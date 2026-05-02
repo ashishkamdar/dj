@@ -81,7 +81,7 @@ interface OrdersTableProps {
 
 export function OrdersTable({ rows }: OrdersTableProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isPending, startTransition] = useTransition();
 

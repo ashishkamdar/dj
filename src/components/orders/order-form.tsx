@@ -250,7 +250,7 @@ export function OrderForm({
   const recurringClients = sortedClients.filter((c) => c.isRecurring);
 
   return (
-    <div className="space-y-6 overflow-hidden">
+    <div className="w-full max-w-full min-w-0 space-y-6">
       {/* Quick-pick recurring clients */}
       {recurringClients.length > 0 && (
         <div>
@@ -478,7 +478,7 @@ export function OrderForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           type="button"
           variant="secondary"

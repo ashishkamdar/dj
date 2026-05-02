@@ -59,7 +59,7 @@ export default async function NewOrderPage({
   );
 
   return (
-    <div>
+    <div className="w-full min-w-0 max-w-full">
       <div className="mb-6">
         <Link
           href={`/calendar/${date}`}

@@ -27,7 +27,7 @@ export type RecurringTemplateRow = {
   id: number;
   clientId: number;
   firmId: number;
-  name: string;
+  name: string | null;
   daysOfWeek: number;
   billingType: "gst" | "non-gst" | "catering";
   notes: string | null;

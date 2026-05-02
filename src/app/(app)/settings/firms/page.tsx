@@ -76,7 +76,7 @@ export default async function FirmsPage() {
                   >
                     <button
                       type="submit"
-                      className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                      className="cursor-pointer text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
                     >
                       Set as default
                     </button>
@@ -142,7 +142,7 @@ export default async function FirmsPage() {
                             >
                               <button
                                 type="submit"
-                                className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                className="cursor-pointer text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
                               >
                                 Set as default
                               </button>

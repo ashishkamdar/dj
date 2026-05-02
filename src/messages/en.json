@@ -20,6 +20,7 @@
   "nav": {
     "calendar": "Calendar",
     "orders": "Orders",
+    "recurring": "Recurring",
     "clients": "Clients",
     "products": "Products",
     "more": "More",

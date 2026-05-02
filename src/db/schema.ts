@@ -25,6 +25,7 @@ export const tenants = pgTable("tenants", {
     enum: ["free", "monthly", "yearly"],
   }).notNull().default("free"),
   subscriptionExpiresAt: timestamp("subscription_expires_at"),
+  lastRecurringGenAt: text("last_recurring_gen_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -133,6 +134,7 @@ export const orders = pgTable("orders", {
   eventDate: text("event_date"),
   eventName: text("event_name"),
   advancePaid: real("advance_paid").default(0),
+  generatedFromTemplateId: integer("generated_from_template_id"),
   createdBy: integer("created_by").references(() => users.id),
   updatedBy: integer("updated_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -185,4 +187,30 @@ export const payments = pgTable("payments", {
   notes: text("notes"),
   receivedBy: integer("received_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const recurringTemplates = pgTable("recurring_templates", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => clients.id),
+  firmId: integer("firm_id").notNull().references(() => firms.id),
+  name: text("name").default(""),
+  // 7-bit mask, bit 0 = Sunday … bit 6 = Saturday. Daily = 127.
+  daysOfWeek: integer("days_of_week").notNull().default(0),
+  billingType: text("billing_type", { enum: ["gst", "non-gst", "catering"] }).notNull(),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const recurringTemplateItems = pgTable("recurring_template_items", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  templateId: integer("template_id").notNull().references(() => recurringTemplates.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => products.id),
+  quantity: real("quantity").notNull(),
+  unit: text("unit").default("kg"),
+  rate: real("rate").notNull(),
 });

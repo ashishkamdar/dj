@@ -9,6 +9,8 @@ const TENANT_TABLES = [
   "order_items",
   "invoices",
   "payments",
+  "recurring_templates",
+  "recurring_template_items",
 ];
 
 async function setupRLS() {

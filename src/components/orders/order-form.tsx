@@ -329,7 +329,7 @@ export function OrderForm({
                       : "inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
                   }
                 >
-                  <span className="truncate">{p.name}</span>
+                  <span className="min-w-0 truncate">{p.name}</span>
                   {inOrder && inOrder.quantity > 0 && (
                     <span className="shrink-0 text-[10px] tabular-nums opacity-90">
                       ×{inOrder.quantity}

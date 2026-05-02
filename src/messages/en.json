@@ -21,6 +21,7 @@
     "calendar": "Calendar",
     "orders": "Orders",
     "recurring": "Recurring",
+    "payments": "Payments",
     "clients": "Clients",
     "products": "Products",
     "more": "More",

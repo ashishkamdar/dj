@@ -40,3 +40,36 @@ export async function getPaymentsByClient(clientId: number) {
   return adminDb.select().from(schema.payments)
     .where(and(eq(schema.payments.tenantId, tenantId), eq(schema.payments.clientId, clientId)));
 }
+
+export async function recordClientPayment(
+  clientId: number,
+  formData: FormData,
+) {
+  const user = await requireAdmin();
+  const { tenantId } = user;
+
+  const amount = parseFloat(formData.get("amount") as string);
+  const date = (formData.get("date") as string) || "";
+  const mode = (formData.get("mode") as string) || "cash";
+  const notes = (formData.get("notes") as string) || "";
+
+  if (!amount || amount <= 0) throw new Error("Amount must be positive");
+  if (!date) throw new Error("Date is required");
+
+  await withTenantDb(tenantId, async (db) => {
+    await db.insert(schema.payments).values({
+      tenantId,
+      clientId,
+      amount,
+      date,
+      mode: mode as "cash" | "upi" | "bank",
+      notes,
+      receivedBy: user.id,
+    });
+  });
+
+  revalidatePath("/payments");
+  revalidatePath("/orders");
+  revalidatePath("/analytics");
+  revalidatePath(`/clients/${clientId}`);
+}

@@ -262,7 +262,7 @@ export function OrderForm({
               Recurring clients
             </p>
           </div>
-          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+          <div className="mt-2 flex max-h-40 max-w-full min-w-0 flex-wrap gap-2 overflow-x-hidden overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
             {recurringClients.map((c) => {
               const selected = clientId === String(c.id);
               return (
@@ -272,8 +272,8 @@ export function OrderForm({
                   onClick={() => handleClientChange(String(c.id))}
                   className={
                     selected
-                      ? "cursor-pointer rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
-                      : "cursor-pointer rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
+                      ? "max-w-full cursor-pointer truncate rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
+                      : "max-w-full cursor-pointer truncate rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
                   }
                 >
                   {c.shopName}
@@ -315,7 +315,7 @@ export function OrderForm({
               Tap once to add · tap again to +1 qty
             </p>
           </div>
-          <div className="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+          <div className="mt-2 flex max-h-40 max-w-full min-w-0 flex-wrap gap-2 overflow-x-hidden overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
             {products.map((p) => {
               const inOrder = lineItems.find((i) => i.productId === p.id);
               return (
@@ -325,13 +325,13 @@ export function OrderForm({
                   onClick={() => quickAddProduct(p.id)}
                   className={
                     inOrder
-                      ? "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
-                      : "inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
+                      ? "inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-indigo-600 transition-colors hover:bg-indigo-500 dark:bg-indigo-500 dark:ring-indigo-500 dark:hover:bg-indigo-400"
+                      : "inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200"
                   }
                 >
-                  {p.name}
+                  <span className="truncate">{p.name}</span>
                   {inOrder && inOrder.quantity > 0 && (
-                    <span className="text-[10px] tabular-nums opacity-90">
+                    <span className="shrink-0 text-[10px] tabular-nums opacity-90">
                       ×{inOrder.quantity}
                     </span>
                   )}

@@ -10,8 +10,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-white dark:bg-gray-900">
       <ImpersonationBanner />
       <Sidebar userName={user.name} userRole={user.role} />
-      <main className="pb-20 xl:pl-64 xl:pb-0">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      {/*
+        overflow-x-clip on the inner content wrapper acts as a durable
+        guard: even if a future change inside any app page produces
+        content wider than the viewport, the page won't sprout a
+        horizontal scrollbar. Tables and other elements that need to
+        scroll horizontally manage their own overflow internally
+        (e.g. <div class="overflow-x-auto"> wrappers).
+      */}
+      <main className="pb-20 xl:pl-64 xl:pb-0 overflow-x-clip">
+        <div className="mx-auto max-w-7xl min-w-0 px-4 py-6 sm:px-6 lg:px-8 overflow-x-clip">
           {children}
         </div>
       </main>
